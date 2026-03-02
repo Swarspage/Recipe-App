@@ -1,0 +1,386 @@
+Here's your **complete, battle-ready Replit prompt**. Copy paste the whole thing:
+
+---
+
+```
+You are an expert full-stack developer. Build a premium recipe web app called **"Zest"** — targeted at PG residents & young adults who have random ingredients and have NO idea what to cook.
+
+---
+
+## 🎨 DESIGN SYSTEM (NON-NEGOTIABLE)
+
+Replicate this exact visual language:
+- **Background:** #F0EDE6 (warm off-white cream, never pure white)
+- **Primary Dark:** #1C3829 (deep forest green — navbars, footers, buttons)
+- **Accent Gold:** #C9963A (italic headings, highlights, badges)
+- **Text:** #1a1a1a on light, #F0EDE6 on dark backgrounds
+- **Cards:** #FFFFFF with border-radius: 20px, box-shadow: 0 4px 24px rgba(0,0,0,0.07)
+- **Font Pairing:** 
+  - Display/Headings: `Cormorant Garamond` (serif, italic for hero text like "Parsik elite")
+  - Body/UI: `DM Sans` (clean, modern sans-serif)
+  - Import both from Google Fonts
+- **Aesthetic:** Refined luxury-utility. Like a premium Mumbai café digitized. Clean breathing room. NOT startup-bro. NOT foodie blog.
+- Navbar: cream background, forest green logo, gold italic sub-word, minimal links
+- Footer: deep forest green background, cream text, gold accents
+- Buttons: Forest green filled (primary), outlined with green border (secondary) — pill-shaped, never square
+- All icons: `react-icons` (Heroicons Hi set)
+- Micro-animations: Framer Motion on ALL route changes, card appearances, chip toggles
+
+---
+
+## 🏗️ TECH STACK
+
+**Frontend:** React 18 + Vite, React Router DOM v6, Framer Motion, Axios, React Icons
+**Backend:** Node.js + Express.js
+**Database:** MongoDB + Mongoose
+**AI:** Groq API (llama3-70b-8192 model) — for ingredient substitution suggestions
+**Auth:** express-session + connect-mongo + bcryptjs
+**Voice:** Web Speech API (browser-native, no library needed)
+
+---
+
+## 📁 PROJECT STRUCTURE
+
+```
+/backend
+  server.js
+  .env
+  /models
+    User.js
+    Recipe.js
+  /controllers
+    authController.js
+    recipeController.js
+    userController.js
+  /routes
+    auth.js
+    recipes.js
+    user.js
+  /data
+    recipes.json
+
+/frontend
+  vite.config.js
+  /src
+    main.jsx
+    App.jsx
+    /context
+      AuthContext.jsx
+    /pages
+      Home.jsx
+      Login.jsx
+      Register.jsx
+      Dashboard.jsx
+      Pantry.jsx
+      Profile.jsx
+      Planner.jsx
+    /components
+      Navbar.jsx
+      Footer.jsx
+      RecipeCard.jsx
+      RecipeModal.jsx
+      IngredientChip.jsx
+      ProtectedRoute.jsx
+      VoiceSearch.jsx
+      MacroChart.jsx
+```
+
+---
+
+## 🗄️ DATABASE SCHEMAS
+
+### User.js
+```js
+{ 
+  username: { type: String, required: true, unique: true, minLength: 3, trim: true },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password: { type: String, required: true, minLength: 6 }, // bcrypt hashed
+  savedRecipes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Recipe' }],
+  weeklyPlanner: {
+    monday: [String], tuesday: [String], wednesday: [String],
+    thursday: [String], friday: [String], saturday: [String], sunday: [String]
+  },
+  createdAt: { type: Date, default: Date.now }
+}
+```
+
+### Recipe.js
+```js
+{
+  id: { type: Number, required: true, unique: true },
+  name: String,
+  description: String,
+  ingredients: [String],
+  category: String, // "Breakfast", "Lunch", "Dinner", "Snack", "Dessert"
+  cuisine: String,  // "Indian", "Italian", "Chinese", "Continental"
+  time_minutes: Number,
+  difficulty: String, // "Easy", "Medium", "Hard"
+  servings: Number,
+  image_url: String,
+  steps: [String],
+  tags: [String],
+  ratings: [{ userId: mongoose.Schema.Types.ObjectId, score: Number, reviewText: String }],
+  averageRating: { type: Number, default: 0 }
+}
+```
+
+---
+
+## 📡 BACKEND API ROUTES
+
+### Auth `/api/auth`
+- POST `/register` — hash password, set session, return user (no password)
+- POST `/login` — validate, set session
+- POST `/logout` — destroy session
+- GET `/check` — return current user from session
+
+### Recipes `/api/recipes`
+- GET `/` — all recipes (limit 100)
+- GET `/:id` — single recipe
+- On server start: run `seedRecipes()` — if collection empty, seed from `recipes.json`
+
+### User `/api/user` (all protected — check req.session.userId)
+- GET `/saved` — populated saved recipes
+- POST `/saved` — add recipeId to saved
+- DELETE `/saved/:id` — remove from saved
+- GET `/profile` — user info + savedCount + joinDate
+- GET `/planner` — get weekly planner
+- POST `/planner` — update weekly planner `{ day, recipeId }`
+
+### AI `/api/ai` (protected)
+- POST `/substitute` — body: `{ ingredient, recipeContext }` → call Groq API → return substitute suggestion
+
+---
+
+## 🥗 RECIPES.JSON SEED DATA
+
+Create a `recipes.json` with **25 realistic recipes** targeting PG residents. Mix of:
+- Quick Indian (Dal Tadka, Jeera Rice, Aloo Sabzi, Egg Bhurji, Poha, Upma, Maggi Upgrade)
+- Easy Continental (Pasta Aglio e Olio, Scrambled Eggs Toast, Omelette Wrap)
+- Chinese-style (Fried Rice, Noodles, Manchurian)
+- Snacks (Bread Pakora, Sandwiches, Chilla)
+- 5-8 ingredients per recipe MAX (PG-realistic)
+- time_minutes: 10–35 minutes only
+- difficulty: mostly Easy/Medium
+- Use real Unsplash food image URLs for image_url
+
+---
+
+## ⭐ THE CROWN JEWEL — PANTRY MATCHING ALGORITHM
+
+**`/pantry` page — this is the core differentiator.**
+
+### Layout: Two-panel split
+**Left (40%):** Ingredient selector
+**Right (60%):** Matched recipe cards, animated
+
+### Left Panel Logic:
+1. On mount, fetch ALL recipes
+2. Extract every unique ingredient across all recipes → build a categorized map:
+   ```
+   Vegetables: [Onion, Tomato, Potato, Garlic...]
+   Grains & Staples: [Rice, Atta, Bread, Maggi...]
+   Dairy & Eggs: [Egg, Milk, Curd, Butter, Paneer...]
+   Spices: [Cumin, Turmeric, Chili, Coriander...]
+   Proteins: [Chicken, Dal, Paneer, Soya...]
+   Condiments: [Oil, Salt, Soy Sauce, Ketchup...]
+   ```
+3. Search bar to filter ingredient chips
+4. **Voice Input button** — uses Web Speech API to listen and auto-toggle matching ingredient chips
+5. IngredientChip component: pill shape, on unselected = cream background + green border, on selected = forest green background + gold checkmark + white text, Framer Motion spring animation on toggle
+
+### Right Panel — Matching Algorithm:
+```js
+const matchedRecipes = useMemo(() => {
+  if (selectedIngredients.size === 0) return [];
+  
+  return recipes
+    .map(recipe => {
+      const recipeIngredients = recipe.ingredients.map(i => i.toLowerCase());
+      const selected = [...selectedIngredients].map(i => i.toLowerCase());
+      const matched = selected.filter(i => 
+        recipeIngredients.some(ri => ri.includes(i) || i.includes(ri))
+      );
+      const missing = recipeIngredients.filter(ri => 
+        !selected.some(i => ri.includes(i) || i.includes(ri))
+      );
+      const matchScore = Math.round((matched.length / recipeIngredients.length) * 100);
+      return { ...recipe, matchScore, matchedIngredients: matched, missingIngredients: missing };
+    })
+    .filter(r => r.matchScore > 0)
+    .sort((a, b) => {
+      if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+      return a.time_minutes - b.time_minutes; // tie-break: faster first
+    });
+}, [selectedIngredients, recipes]);
+```
+
+### RecipeCard shows:
+- Match score badge: 
+  - 100% → forest green badge "Perfect Match ✓"
+  - 75-99% → gold badge "X% Match"
+  - 50-74% → cream/outline badge "X% Match"
+  - <50% → subtle gray badge
+- Missing ingredients count: "Missing 2 ingredients"
+- Time + difficulty chips
+- Framer Motion: `AnimatePresence` with `layout` prop so cards smoothly reorder as you toggle chips
+
+---
+
+## 🤖 AI SUBSTITUTION (Groq)
+
+In RecipeModal, missing ingredients shown in soft red/muted color with a small **"Substitute?"** button.
+
+On click → POST `/api/ai/substitute` → backend calls Groq:
+```
+System: "You are a culinary assistant helping PG residents in India find ingredient substitutes using easily available items. Be concise — max 2 sentences."
+User: "I'm missing [ingredient] for [recipe name]. What can I substitute it with using common PG kitchen items?"
+```
+Display response inline below the ingredient as a gold-colored suggestion card. Loading state: subtle shimmer animation.
+
+---
+
+## 🎤 VOICE SEARCH
+
+In the Pantry page header — a mic button.
+- On click: start Web Speech API recognition
+- Show animated pulse ring while listening (Framer Motion)
+- Speech recognized → parse words → match against ingredient list → auto-toggle those chips
+- Show toast: "Heard: tomato, onion, egg → 3 ingredients added"
+
+---
+
+## 📱 PAGES BREAKDOWN
+
+### Home `/`
+- Navbar: cream bg, forest green "Zest" logo with gold italic tagline "by you"
+- Hero: Left side text + CTAs, Right side: stacked rotated cards (like Parsik screenshots) showing food images
+- Stats strip: "25+ Recipes | 50+ Ingredients | AI-Powered Matching"
+- 3 feature cards: same style as Parsik's "Artisanal Roasts" cards — white cards on light green section
+- Footer: forest green, full footer like Parsik screenshot
+
+### Login & Register `/login` `/register`
+- Split screen: left = forest green panel with logo + tagline, right = cream panel with form
+- Form: rounded inputs, forest green submit button
+- Error messages: gold-colored inline
+
+### Dashboard `/dashboard` (Protected)
+- Greeting: "Good evening, [name]. What are we cooking?" 
+- Quick stats bar: Saved Recipes | Days active | Cuisines explored
+- Featured recipes horizontal scroll
+- "Start Cooking from Pantry" big CTA card with animated arrow
+
+### Pantry `/pantry` (Protected) — THE MAIN PAGE
+- As described above in Crown Jewel section
+
+### Profile `/profile` (Protected)
+- User card with avatar (initial-based), join date, stats
+- Saved recipes grid
+
+### Weekly Planner `/planner` (Protected)
+- 7-day grid (Mon-Sun)
+- Drag saved recipes into day slots (use @dnd-kit/core)
+- "Generate Grocery List" button → aggregates all ingredients, deduplicates, shows checklist modal
+- Export grocery list — clean printable view
+
+---
+
+## 🎨 COMPONENT DETAILS
+
+### Navbar
+- Logo: "Zest" in Cormorant Garamond bold + small gold italic "• by you"
+- Links: Home, Pantry, Planner, Profile
+- Right: Login button (outlined) OR avatar circle (logged in)
+- On scroll: add soft shadow
+
+### RecipeModal  
+- Full overlay, centered large modal, scroll within
+- Top: image (cover, rounded-xl), badge strip (category, cuisine, time, difficulty)  
+- Body: two columns — left: ingredients with checkboxes, missing ones in muted red + "Substitute?" button, right: numbered steps
+- Bottom: Macro chart (donut using Recharts), save button, share button
+- Close: X button top-right + click outside
+
+### MacroChart
+- Use Recharts PieChart/donut
+- Estimated macros based on category:
+  ```js
+  const macroEstimates = {
+    Breakfast: { calories: 320, protein: 12, carbs: 45, fat: 10 },
+    Lunch: { calories: 520, protein: 22, carbs: 60, fat: 18 },
+    Dinner: { calories: 580, protein: 28, carbs: 55, fat: 22 },
+    Snack: { calories: 210, protein: 6, carbs: 30, fat: 8 },
+    Dessert: { calories: 420, protein: 5, carbs: 68, fat: 16 }
+  }
+  ```
+- Display as colored donut: green=protein, gold=carbs, terracotta=fat
+- Show total kcal in center
+
+---
+
+## ⚙️ CONFIGURATION
+
+### .env (backend)
+```
+MONGO_URI=your_mongodb_atlas_uri
+SESSION_SECRET=zest_super_secret_2024
+GROQ_API_KEY=your_groq_api_key
+PORT=5000
+```
+
+### vite.config.js
+```js
+proxy: { '/api': 'http://localhost:5000' }
+```
+
+### CORS config
+```js
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }))
+```
+
+### Session config
+```js
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({ mongoUrl: process.env.MONGO_URI }),
+  cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 } // 7 days
+}))
+```
+
+---
+
+## ✅ EXECUTION ORDER
+
+1. Backend setup: server.js, .env, mongoose connection, all models
+2. Seed recipes.json with 25 PG-realistic recipes
+3. All API routes + controllers working
+4. Frontend: Vite setup, install all deps, AuthContext, ProtectedRoute
+5. Apply full design system (CSS variables, fonts, color tokens)
+6. Home page (pixel perfect to Parsik aesthetic)
+7. Auth pages (Login + Register)
+8. Pantry page with full matching algorithm + voice input
+9. RecipeCard + RecipeModal with AI substitution + macro chart
+10. Dashboard + Profile + Planner pages
+11. Final polish: Framer Motion on everything, toast notifications, loading states
+
+---
+
+## 🚫 STRICT RULES
+
+- NO plain white backgrounds anywhere — always use #F0EDE6 cream
+- NO default blue browser buttons — all buttons follow color system
+- NO Arial/Roboto/Inter — ONLY Cormorant Garamond + DM Sans
+- NO unrounded corners on cards — minimum border-radius: 16px
+- EVERY page needs a Framer Motion page transition
+- ALL error states must be styled (no raw browser alerts)
+- The app must feel like a ₹10,000/month SaaS product, not a college project
+
+Build this completely. Do not skip any section. Start with backend, then frontend.
+```
+
+---
+
+**Key things I packed in there that make it different:**
+
+The **fuzzy ingredient matching** (partial string match, not just exact) is what nobody does — so "tomato" matches "cherry tomatoes" and "tomato puree". That alone makes the pantry feel magical. Plus the voice → chip auto-toggle is a genuine delight moment. Go build it 🔥

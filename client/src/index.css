@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'DM Sans', sans-serif;
+    --font-serif: 'Cormorant Garamond', serif;
+
+    /* Zest Premium Palette */
+    --background: 40 22% 92%;     /* #F0EDE6 Cream */
+    --foreground: 0 0% 10%;       /* #1a1a1a Text */
+    
+    --primary: 148 33% 16%;       /* #1C3829 Forest Green */
+    --primary-foreground: 40 22% 92%;
+    
+    --secondary: 39 58% 51%;      /* #C9963A Accent Gold */
+    --secondary-foreground: 0 0% 100%;
+    
+    --accent: 39 58% 51%;         /* #C9963A Accent Gold */
+    --accent-foreground: 0 0% 100%;
+
+    --card: 0 0% 100%;            /* White */
+    --card-foreground: 0 0% 10%;
+    
+    --muted: 40 10% 85%;
+    --muted-foreground: 0 0% 40%;
+    
+    --destructive: 7 74% 56%;     /* #E04F3D Terracotta */
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 40 15% 85%;
+    --input: 40 15% 85%;
+    --ring: 148 33% 16%;
+    
+    --radius: 20px;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+    @apply tracking-tight;
+  }
+}
+
+@layer utilities {
+  .shadow-premium {
+    box-shadow: 0 12px 40px -12px rgba(28, 56, 41, 0.12);
+  }
+  
+  .glass-panel {
+    @apply bg-white/80 backdrop-blur-md border border-white/40;
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Custom scrollbar for refined aesthetic */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #C9963A;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #1C3829;
+}
