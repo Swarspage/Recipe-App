@@ -1,0 +1,76 @@
+# ══════════════════════════════════
+# Environment Variables — NEVER commit these
+# ══════════════════════════════════
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+Backend/.env
+Frontend/.env
+Frontend/.env.local
+
+# ══════════════════════════════════
+# Dependencies
+# ══════════════════════════════════
+node_modules/
+Backend/node_modules/
+Frontend/node_modules/
+
+# ══════════════════════════════════
+# Build output
+# ══════════════════════════════════
+Frontend/dist/
+Frontend/build/
+Backend/dist/
+
+# ══════════════════════════════════
+# Logs
+# ══════════════════════════════════
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+
+# ══════════════════════════════════
+# Large / temporary files
+# ══════════════════════════════════
+*.zip
+*.tar.gz
+*.rar
+Dataset_Temp/
+
+# ══════════════════════════════════
+# OS & Editor
+# ══════════════════════════════════
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.idea/
+.vscode/settings.json
+*.suo
+*.user
+
+# ══════════════════════════════════
+# Runtime / Cache
+# ══════════════════════════════════
+.cache/
+.parcel-cache
+.next/
+.nuxt/
+.turbo/
+.vercel/
+.netlify/
+
+# ══════════════════════════════════
+# Testing
+# ══════════════════════════════════
+coverage/
+*.lcov
