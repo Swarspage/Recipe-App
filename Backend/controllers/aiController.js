@@ -18,6 +18,9 @@ STRICT RULES — NEVER BREAK THESE:
 6. Strictly respect constraints: dietary restrictions, time limits, no-oil, vegan, etc.
 7. Recipes must use real measurements and be logically sound.
 8. ALWAYS include nutritional values in every recipe (in the "nutrition" field as an object).
+9. MULTIPLE RECIPE REQUESTS: If the user asks for more than one recipe (e.g. "give me 3 meals" or "breakfast, lunch and snack"), you MUST still only return ONE recipe in the "recipe" field — pick the BEST or most interesting one to generate fully. In the "reply", briefly describe all the other requested options as plain text (name + 1-line description each). Never return an empty or partial recipe object.
+10. LANGUAGE: Respond in the same language the user writes in. If the user writes in Hindi, Marathi, Tamil, etc., reply in that language.
+11. SLANG & INSULTS: Understand casual slang food requests in any language. However, if the user sends clear insults, profanity, or words that are obviously NOT food-related (e.g. using an insult word as if it were a dish name), do NOT generate a recipe — politely refuse and redirect to food topics. Use context to judge intent.
 
 TOPICS YOU REFUSE (respond with food redirect):
 - Relationships, dating, romance
@@ -25,7 +28,7 @@ TOPICS YOU REFUSE (respond with food redirect):
 - Math, coding, science (non-food)
 - Anything not related to food, drink, cooking, or nutrition
 
-Recipe format (ALWAYS include nutrition):
+Recipe format (ALWAYS include all fields, ALWAYS include nutrition):
 {
   "title": "Dish Name",
   "ingredients": [{"name": "ingredient", "quantity": "amount", "note": "optional tip"}],
@@ -138,9 +141,9 @@ exports.handleChat = async (req, res) => {
         { role: 'system', content: CHEF_AI_SYSTEM_PROMPT },
         ...contextHistory
       ],
-      model: 'llama-3.1-8b-instant',
+      model: 'llama-3.3-70b-versatile',
       response_format: { type: 'json_object' },
-      temperature: 0.8,
+      temperature: 0.7,
     });
 
     const rawContent = completion.choices[0].message.content;

@@ -5,14 +5,14 @@ import SaveButton from '../components/SaveButton';
 
 // Quick Mode presets — auto-generate targeted prompts
 const QUICK_MODES = [
-  { emoji: '⚡', label: 'Under 15 min',   prompt: 'GENERATE a complete recipe for a delicious meal I can make in under 15 minutes using common pantry staples. Include full ingredients list and step-by-step method.' },
-  { emoji: '💪', label: 'High Protein',   prompt: 'GENERATE a complete high-protein meal recipe for fitness enthusiasts. Include full ingredients, cooking steps, and estimate macros in nutrition.' },
-  { emoji: '🧒', label: 'Kid Friendly',  prompt: 'GENERATE a complete fun kid-friendly recipe that children will love. Include full ingredients list and simple step-by-step instructions.' },
-  { emoji: '🎉', label: 'Party Snack',   prompt: 'GENERATE a complete party appetizer or snack recipe that serves 6-8 people. Include full ingredients and detailed preparation steps.' },
-  { emoji: '🥗', label: 'No Oil/Healthy',prompt: 'GENERATE a complete healthy oil-free recipe that is still packed with flavor. Include all ingredients (no oil), full cooking method, and nutritional breakdown.' },
-  { emoji: '🇮🇳', label: 'Indian Classic',prompt: 'GENERATE a complete authentic Indian recipe with all spices, full ingredients, and detailed step-by-step cooking instructions.' },
+  { emoji: '⚡', label: 'Under 15 min', prompt: 'GENERATE a complete recipe for a delicious meal I can make in under 15 minutes using common pantry staples. Include full ingredients list and step-by-step method.' },
+  { emoji: '💪', label: 'High Protein', prompt: 'GENERATE a complete high-protein meal recipe for fitness enthusiasts. Include full ingredients, cooking steps, and estimate macros in nutrition.' },
+  { emoji: '🧒', label: 'Kid Friendly', prompt: 'GENERATE a complete fun kid-friendly recipe that children will love. Include full ingredients list and simple step-by-step instructions.' },
+  { emoji: '🎉', label: 'Party Snack', prompt: 'GENERATE a complete party appetizer or snack recipe that serves 6-8 people. Include full ingredients and detailed preparation steps.' },
+  { emoji: '🥗', label: 'No Oil/Healthy', prompt: 'GENERATE a complete healthy oil-free recipe that is still packed with flavor. Include all ingredients (no oil), full cooking method, and nutritional breakdown.' },
+  { emoji: '🇮🇳', label: 'Indian Classic', prompt: 'GENERATE a complete authentic Indian recipe with all spices, full ingredients, and detailed step-by-step cooking instructions.' },
   { emoji: '🍝', label: 'Italian Night', prompt: 'GENERATE a complete authentic Italian pasta or risotto recipe with full ingredients list and step-by-step cooking method.' },
-  { emoji: '🌱', label: 'Vegan',         prompt: 'GENERATE a complete satisfying vegan recipe with lots of flavor. Include full ingredients, cooking steps, and nutrition info.' },
+  { emoji: '🌱', label: 'Vegan', prompt: 'GENERATE a complete satisfying vegan recipe with lots of flavor. Include full ingredients, cooking steps, and nutrition info.' },
 ];
 
 
@@ -27,7 +27,10 @@ const RecipeCanvas = ({ recipe, isGenerating }) => {
     );
   }
 
-  if (!recipe) {
+  // Guard against malformed/empty recipe objects (e.g. AI returned {} or recipe with no ingredients)
+  const isValidRecipe = recipe && recipe.title && recipe.ingredients?.length > 0 && recipe.steps?.length > 0;
+
+  if (!isValidRecipe) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-6 p-12 text-center">
         <div className="text-6xl opacity-20">🍳</div>
@@ -38,6 +41,7 @@ const RecipeCanvas = ({ recipe, isGenerating }) => {
       </div>
     );
   }
+
 
   return (
     <div className="flex-1 overflow-y-auto p-4 lg:p-6">
@@ -130,6 +134,47 @@ const RecipeCanvas = ({ recipe, isGenerating }) => {
   );
 };
 
+// Lightweight markdown → JSX renderer (bold, bullet lists, numbered lists, line breaks)
+const renderMarkdown = (text) => {
+  if (!text) return null;
+  return text.split('\n').map((line, i) => {
+    // Bullet point lines: - item or • item or * item
+    const bulletMatch = line.match(/^[\-\*•]\s+(.+)/);
+    if (bulletMatch) {
+      return (
+        <div key={i} className="flex gap-2 items-start">
+          <span className="w-1 h-1 rounded-full bg-current mt-2 flex-shrink-0 opacity-60" />
+          <span>{applyInline(bulletMatch[1])}</span>
+        </div>
+      );
+    }
+    // Numbered list: 1. item
+    const numberedMatch = line.match(/^(\d+)\.\s+(.+)/);
+    if (numberedMatch) {
+      return (
+        <div key={i} className="flex gap-2 items-start">
+          <span className="font-bold opacity-50 text-xs flex-shrink-0 mt-0.5">{numberedMatch[1]}.</span>
+          <span>{applyInline(numberedMatch[2])}</span>
+        </div>
+      );
+    }
+    // Empty line → spacing
+    if (line.trim() === '') return <div key={i} className="h-1" />;
+    // Normal line
+    return <div key={i}>{applyInline(line)}</div>;
+  });
+};
+
+// Applies inline formatting: **bold** and *italic*
+const applyInline = (text) => {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith('*') && part.endsWith('*')) return <em key={i}>{part.slice(1, -1)}</em>;
+    return part;
+  });
+};
+
 // Individual message bubble
 const MessageBubble = ({ msg, onRecipeShow }) => {
   const isUser = msg.role === 'user';
@@ -140,8 +185,8 @@ const MessageBubble = ({ msg, onRecipeShow }) => {
         {isUser ? '👤' : '👨‍🍳'}
       </div>
       <div className={`max-w-[75%] space-y-2 ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
-        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${isUser ? 'bg-primary text-background rounded-tr-sm' : 'bg-surface border border-primary/5 text-primary/80 rounded-tl-sm'}`}>
-          {msg.content}
+        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed space-y-0.5 ${isUser ? 'bg-[#895737] text-[background] rounded-tr-sm' : 'bg-surface border border-primary/5 text-primary/80 rounded-tl-sm'}`}>
+          {isUser ? msg.content : renderMarkdown(msg.content)}
         </div>
         {msg.recipeData && (
           <button
@@ -433,7 +478,7 @@ const ChefAI = () => {
               {(!activeChat || activeChat.messages?.length === 0) && (
                 <div className="flex flex-col items-center justify-center h-full gap-3 opacity-30">
                   <div className="text-5xl">👨‍🍳</div>
-                  <p className="text-[10px] uppercase tracking-widest text-center">Ask me for a recipe,<br/>cooking tips, or nutrition info</p>
+                  <p className="text-[10px] uppercase tracking-widest text-center">Ask me for a recipe,<br />cooking tips, or nutrition info</p>
                 </div>
               )}
               {activeChat?.messages?.map((msg, i) => (
@@ -441,9 +486,9 @@ const ChefAI = () => {
               ))}
               {isLoading && (
                 <div className="flex gap-2 items-center">
-                  <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center text-xs">👨‍🍳</div>
+                  <div className="w-7 h-7 rounded-full bg-accent/50 flex items-center justify-center text-xs">👨‍🍳</div>
                   <div className="flex gap-1 px-4 py-3 bg-surface rounded-2xl rounded-tl-sm">
-                    {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-accent/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}} />)}
+                    {[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-accent/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
                   </div>
                 </div>
               )}
