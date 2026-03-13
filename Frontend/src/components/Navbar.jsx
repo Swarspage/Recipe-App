@@ -5,9 +5,9 @@ const Navbar = () => {
   const { user, logout } = useAuth();
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-accent/10">
+    <nav className="fixed top-0 left-0 w-full z-50 bg-gradient-to-b from-black/50 to-transparent backdrop-blur-sm border-b border-white/10 text-white">
       <div className="max-w-container mx-auto px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="font-poiret text-2xl font-bold tracking-widest text-primary">
+        <Link to="/" className="font-poiret text-2xl font-bold tracking-widest text-white">
           RECIPE<span className="text-accent">AI</span>
         </Link>
 

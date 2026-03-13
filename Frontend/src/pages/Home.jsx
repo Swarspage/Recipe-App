@@ -99,24 +99,34 @@ const Home = () => {
           -webkit-text-fill-color: transparent;
           animation: shimmer 4s linear infinite;
         }
+        .hero-section {
+          width: 100vw;
+          margin-left: calc(-50vw + 50%);
+          position: relative;
+        }
       `}</style>
 
       {/* ═══════════════════ HERO ═══════════════════ */}
       <section ref={heroRef}
-        className="relative min-h-screen flex items-center overflow-hidden -mt-8"
-        style={{ background: 'linear-gradient(135deg, #1a0e0a 0%, #2A1A14 40%, #3d2415 100%)' }}>
+        className="relative h-screen w-full flex items-center overflow-hidden"
+        style={{ background: '#1a0e0a' }}>
 
         {/* Background image with parallax */}
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden w-full h-full">
           <img
             src="/hero-food.png"
             alt="Gourmet food spread"
-            className="w-full h-full object-cover opacity-25 scale-110"
-            style={{ transform: `scale(1.1) translate(${mousePos.x * 0.3}px, ${mousePos.y * 0.3}px)`, transition: 'transform 0.1s ease-out' }}
+            className="w-full h-full object-cover opacity-60 scale-110"
+            style={{
+              transform: `scale(1.1) translate(${mousePos.x * 0.3}px, ${mousePos.y * 0.3}px)`,
+              transition: 'transform 0.1s ease-out',
+              width: '100vw',
+              height: '100vh'
+            }}
           />
           {/* Deep gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/70 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-primary/40" />
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/90 via-primary/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-primary/20" />
         </div>
 
         {/* Glowing orbs */}
@@ -125,7 +135,7 @@ const Home = () => {
         <div className="absolute bottom-1/4 right-1/3 w-64 h-64 rounded-full opacity-10"
           style={{ background: 'radial-gradient(circle, #8D7B6D 0%, transparent 70%)' }} />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 py-24 grid lg:grid-cols-2 gap-12 items-center w-full">
+        <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-40 pb-24 grid lg:grid-cols-2 gap-12 items-center w-full">
 
           {/* Left: text */}
           <div className="space-y-8">

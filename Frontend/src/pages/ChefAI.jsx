@@ -348,7 +348,7 @@ const ChefAI = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex h-screen pt-16 overflow-hidden">
       {/* Left Panel — Chat Sidebar (30%) */}
       <div className="w-full max-w-[280px] border-r border-accent/10 flex flex-col bg-surface/30 flex-shrink-0">
         {/* Header */}

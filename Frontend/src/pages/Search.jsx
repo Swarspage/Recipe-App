@@ -13,10 +13,10 @@ const INGREDIENT_SHELF = {
 };
 
 const MOODS = [
-  { id: 'spicy',   emoji: '🔥', label: 'Spicy',   tags: ['spicy', 'hot'] },
+  { id: 'spicy', emoji: '🔥', label: 'Spicy', tags: ['spicy', 'hot'] },
   { id: 'comfort', emoji: '😌', label: 'Comfort', tags: ['comfort', 'creamy', 'dal'] },
-  { id: 'quick',   emoji: '⚡', label: 'Quick 15m', cookTime: 15 },
-  { id: 'party',   emoji: '🎉', label: 'Party',   tags: ['party', 'snack', 'starter'] },
+  { id: 'quick', emoji: '⚡', label: 'Quick 15m', cookTime: 15 },
+  { id: 'party', emoji: '🎉', label: 'Party', tags: ['party', 'snack', 'starter'] },
   { id: 'healthy', emoji: '🥗', label: 'Healthy', tags: ['healthy', 'light'] },
 ];
 
@@ -49,7 +49,7 @@ const RecipeResultCard = ({ recipe, isReady }) => {
       if (entry.isIntersecting) {
         fetch(`http://localhost:5000/api/recipes/${recipe._id}/image`, { credentials: 'include' })
           .then(r => r.json()).then(d => { if (d.imageUrl) setImgSrc(d.imageUrl); })
-          .catch(() => {});
+          .catch(() => { });
         observer.disconnect();
       }
     }, { threshold: 0.1 });
@@ -242,12 +242,12 @@ const Search = () => {
     });
   });
 
-  const readyNow  = filtered.filter(r => r.missingCount === 0);
-  const oneAway   = filtered.filter(r => r.missingCount === 1);
+  const readyNow = filtered.filter(r => r.missingCount === 0);
+  const oneAway = filtered.filter(r => r.missingCount === 1);
   const potential = filtered.filter(r => r.missingCount > 1);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 mt-16">
 
       {/* ── Header ── */}
       <header className="space-y-2">
@@ -306,11 +306,10 @@ const Search = () => {
             <div className="flex flex-wrap gap-2">
               {MOODS.map(mood => (
                 <button key={mood.id} onClick={() => toggleMood(mood.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider border transition-all hover:scale-105 ${
-                    activeMoods.includes(mood.id)
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider border transition-all hover:scale-105 ${activeMoods.includes(mood.id)
                       ? 'bg-primary text-background border-primary'
                       : 'bg-surface/50 text-primary/60 border-primary/10 hover:border-primary/30'
-                  }`}>
+                    }`}>
                   {mood.emoji} {mood.label}
                 </button>
               ))}
@@ -325,11 +324,10 @@ const Search = () => {
             <div className="flex flex-wrap gap-1.5">
               {Object.keys(INGREDIENT_SHELF).map(cat => (
                 <button key={cat} onClick={() => setActiveCategory(cat)}
-                  className={`text-[9px] px-2.5 py-1 rounded-lg uppercase tracking-wide border transition-all ${
-                    activeCategory === cat
+                  className={`text-[9px] px-2.5 py-1 rounded-lg uppercase tracking-wide border transition-all ${activeCategory === cat
                       ? 'bg-accent text-background border-accent'
                       : 'bg-surface/50 text-primary/50 border-primary/10 hover:border-accent/40'
-                  }`}>
+                    }`}>
                   {cat}
                 </button>
               ))}
@@ -341,9 +339,8 @@ const Search = () => {
                 const on = ingredients.includes(ing.toLowerCase());
                 return (
                   <button key={ing} onClick={() => toggleIngredient(ing)}
-                    className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider border transition-all hover:scale-105 ${
-                      on ? 'bg-primary text-background border-primary shadow-md' : 'bg-surface/50 text-primary/60 border-primary/10 hover:border-primary/30'
-                    }`}>
+                    className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider border transition-all hover:scale-105 ${on ? 'bg-primary text-background border-primary shadow-md' : 'bg-surface/50 text-primary/60 border-primary/10 hover:border-primary/30'
+                      }`}>
                     {ing}
                   </button>
                 );

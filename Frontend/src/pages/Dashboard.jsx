@@ -7,11 +7,11 @@ import { useAuth } from '../hooks/useAuth';
 // --- Time-aware helpers ---
 const getGreeting = () => {
   const hour = new Date().getHours();
-  if (hour < 5)  return { text: 'Still up late?', emoji: '🌙' };
-  if (hour < 12) return { text: 'Good Morning',   emoji: '☀️' };
+  if (hour < 5) return { text: 'Still up late?', emoji: '🌙' };
+  if (hour < 12) return { text: 'Good Morning', emoji: '☀️' };
   if (hour < 17) return { text: 'Good Afternoon', emoji: '🌤' };
-  if (hour < 21) return { text: 'Good Evening',   emoji: '🌅' };
-  return         { text: 'Good Night',             emoji: '🌙' };
+  if (hour < 21) return { text: 'Good Evening', emoji: '🌅' };
+  return { text: 'Good Night', emoji: '🌙' };
 };
 
 const getMealContext = () => {
@@ -19,7 +19,7 @@ const getMealContext = () => {
   if (hour < 10) return { label: "Breakfast ideas", icon: "🍳", desc: "Start your day right" };
   if (hour < 14) return { label: "Lunch is calling", icon: "🥗", desc: "Something light & fresh" };
   if (hour < 19) return { label: "Dinner tonight?", icon: "🍽", desc: "Time to plan your meal" };
-  return         { label: "Late night cravings", icon: "🌙", desc: "Something quick & comforting" };
+  return { label: "Late night cravings", icon: "🌙", desc: "Something quick & comforting" };
 };
 
 const getDate = () => {
@@ -97,7 +97,7 @@ const Dashboard = () => {
     <div className="space-y-16">
 
       {/* ===== HERO WELCOME SECTION ===== */}
-      <section className="relative overflow-hidden rounded-3xl min-h-[300px]" style={{
+      <section className="relative mt-16 overflow-hidden rounded-3xl min-h-[300px]" style={{
         background: 'linear-gradient(135deg, #1a0a00 0%, #2d1200 40%, #1a1a2e 100%)'
       }}>
         {/* Glow orbs */}
@@ -108,12 +108,12 @@ const Dashboard = () => {
         {/* Floating food emojis — decorative */}
         <div className="absolute inset-0 pointer-events-none select-none overflow-hidden">
           {[
-            { e: '🍛', top: '10%', right: '8%',  size: '4rem', rot: '-8deg',  anim: 'animate-bounce', delay: '0s'    },
-            { e: '🫓', top: '60%', right: '20%', size: '3rem', rot: '12deg',  anim: 'animate-pulse',  delay: '0.5s'  },
-            { e: '🌶️', top: '20%', right: '32%', size: '2.5rem', rot: '-5deg', anim: 'animate-bounce', delay: '1s'  },
-            { e: '🫕', top: '70%', right: '5%',  size: '3.5rem', rot: '8deg',  anim: 'animate-pulse',  delay: '1.5s' },
-            { e: '🥘', top: '35%', right: '45%', size: '2rem',   rot: '-12deg', anim: 'animate-bounce', delay: '0.3s' },
-            { e: '🫙', top: '80%', right: '38%', size: '2.5rem', rot: '5deg',  anim: 'animate-pulse',  delay: '0.8s' },
+            { e: '🍛', top: '10%', right: '8%', size: '4rem', rot: '-8deg', anim: 'animate-bounce', delay: '0s' },
+            { e: '🫓', top: '60%', right: '20%', size: '3rem', rot: '12deg', anim: 'animate-pulse', delay: '0.5s' },
+            { e: '🌶️', top: '20%', right: '32%', size: '2.5rem', rot: '-5deg', anim: 'animate-bounce', delay: '1s' },
+            { e: '🫕', top: '70%', right: '5%', size: '3.5rem', rot: '8deg', anim: 'animate-pulse', delay: '1.5s' },
+            { e: '🥘', top: '35%', right: '45%', size: '2rem', rot: '-12deg', anim: 'animate-bounce', delay: '0.3s' },
+            { e: '🫙', top: '80%', right: '38%', size: '2.5rem', rot: '5deg', anim: 'animate-pulse', delay: '0.8s' },
           ].map(({ e, top, right, size, rot, anim, delay }, i) => (
             <span key={i} className={`absolute ${anim} opacity-20 hover:opacity-60 transition-opacity`}
               style={{ top, right, fontSize: size, transform: `rotate(${rot})`, animationDelay: delay }}>

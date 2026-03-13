@@ -23,7 +23,7 @@ const RecipeDetail = () => {
   }, [id]);
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="h-[80vh] flex items-center justify-center">
       <div className="w-12 h-12 border-4 border-accent/20 border-t-accent rounded-full animate-spin"></div>
     </div>
   );

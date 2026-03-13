@@ -9,8 +9,8 @@ const BOARDS = ['All Recipes', 'Weeknight Meals', 'Party Food', 'Diet Recipes', 
 // ── Star Rating display ─────────────────────────────────────────────────────
 const Stars = ({ rating }) => (
   <div className="flex gap-0.5">
-    {[1,2,3,4,5].map(n => (
-      <span key={n} className={`text-xs ${n <= (rating||0) ? 'text-amber-400' : 'text-primary/10'}`}>★</span>
+    {[1, 2, 3, 4, 5].map(n => (
+      <span key={n} className={`text-xs ${n <= (rating || 0) ? 'text-amber-400' : 'text-primary/10'}`}>★</span>
     ))}
   </div>
 );
@@ -21,7 +21,7 @@ const TasteProfileCard = ({ profile, stats, loading }) => {
     <div className="premium-card border-accent/20 space-y-3 animate-pulse">
       <div className="h-4 bg-primary/5 rounded w-1/3" />
       <div className="h-8 bg-primary/5 rounded w-2/3" />
-      <div className="flex gap-2">{[1,2,3].map(i => <div key={i} className="h-6 bg-primary/5 rounded-full w-24" />)}</div>
+      <div className="flex gap-2">{[1, 2, 3].map(i => <div key={i} className="h-6 bg-primary/5 rounded-full w-24" />)}</div>
     </div>
   );
 
@@ -164,12 +164,12 @@ const SavedCard = ({ item, onUnsave }) => {
 // ── Main Profile Page ────────────────────────────────────────────────────────
 const Profile = () => {
   const { user } = useAuth();
-  const [saved, setSaved]           = useState([]);
-  const [loading, setLoading]       = useState(true);
+  const [saved, setSaved] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [activeBoard, setActiveBoard] = useState('All Recipes');
-  const [activeTab, setActiveTab]   = useState('collection'); // 'collection' | 'ai'
+  const [activeTab, setActiveTab] = useState('collection'); // 'collection' | 'ai'
 
   useEffect(() => {
     loadSaved();
@@ -191,7 +191,7 @@ const Profile = () => {
     try {
       const data = await api('/cookbook/taste-profile');
       setProfileData(data);
-    } catch {}
+    } catch { }
     finally { setProfileLoading(false); }
   };
 
@@ -199,7 +199,7 @@ const Profile = () => {
     try {
       await api(`/cookbook/${recipeId}`, { method: 'DELETE' });
       setSaved(prev => prev.filter(r => r._id !== recipeId));
-    } catch {}
+    } catch { }
   };
 
   const allBoards = ['All Recipes', ...new Set(saved.map(r => r.board).filter(b => b && b !== 'All Recipes'))];
@@ -212,7 +212,7 @@ const Profile = () => {
   const firstName = user?.name?.split(' ')[0] || 'Chef';
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 mt-16">
 
       {/* ── Profile Header ── */}
       <header className="premium-card border-accent/10 flex flex-col md:flex-row items-start gap-6 relative overflow-hidden">
@@ -258,9 +258,8 @@ const Profile = () => {
       <div className="flex gap-1 border-b border-primary/5">
         {[['collection', '📖 My Collection'], ['ai', '🤖 My Taste Profile']].map(([id, label]) => (
           <button key={id} onClick={() => setActiveTab(id)}
-            className={`px-5 py-2.5 text-[10px] uppercase tracking-widest transition-all border-b-2 -mb-px ${
-              activeTab === id ? 'border-accent text-accent font-bold' : 'border-transparent text-primary/40 hover:text-primary/60'
-            }`}>
+            className={`px-5 py-2.5 text-[10px] uppercase tracking-widest transition-all border-b-2 -mb-px ${activeTab === id ? 'border-accent text-accent font-bold' : 'border-transparent text-primary/40 hover:text-primary/60'
+              }`}>
             {label}
           </button>
         ))}
@@ -274,9 +273,8 @@ const Profile = () => {
           <div className="flex flex-wrap gap-2">
             {allBoards.map(b => (
               <button key={b} onClick={() => setActiveBoard(b)}
-                className={`px-4 py-1.5 rounded-full text-[9px] uppercase tracking-wider border transition-all ${
-                  activeBoard === b ? 'bg-primary text-background border-primary' : 'bg-surface/50 text-primary/50 border-primary/10 hover:border-accent/40'
-                }`}>
+                className={`px-4 py-1.5 rounded-full text-[9px] uppercase tracking-wider border transition-all ${activeBoard === b ? 'bg-primary text-background border-primary' : 'bg-surface/50 text-primary/50 border-primary/10 hover:border-accent/40'
+                  }`}>
                 {b} {boardCounts[b] ? `(${boardCounts[b]})` : ''}
               </button>
             ))}
