@@ -9,6 +9,7 @@ import ChefAI from './pages/ChefAI';
 import Profile from './pages/Profile';
 import RecipeDetail from './pages/RecipeDetail';
 import Dashboard from './pages/Dashboard';
+import CulinaryLab from './pages/CulinaryLab';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ function App() {
             <Route path="/recipe/:id" element={<RecipeDetail />} />
             <Route path="/chef" element={<ProtectedRoute><ChefAI /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/lab" element={<ProtectedRoute><CulinaryLab /></ProtectedRoute>} />
           </Routes>
         </Layout>
       </AuthProvider>

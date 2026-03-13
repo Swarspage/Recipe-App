@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../utils/api';
 
@@ -7,6 +7,12 @@ const RecipeDetail = () => {
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [morphedRecipe, setMorphedRecipe] = useState(null);
+  const [morphing, setMorphing] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [currentStepVoice, setCurrentStepVoice] = useState(-1);
+  const [synth] = useState(window.speechSynthesis);
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -21,6 +27,88 @@ const RecipeDetail = () => {
     };
     fetchRecipe();
   }, [id]);
+
+  // --- Recipe Alchemist Logic ---
+  const handleMorph = async (mutation) => {
+    setMorphing(true);
+    try {
+      const currentRecipe = morphedRecipe || recipe;
+      const data = await api('/ai/morph-recipe', { body: { recipe: currentRecipe, mutation } });
+      setMorphedRecipe(data);
+      // Speak the new title
+      if (voiceActive) speak(`Poof! Your recipe is now ${data.title}`);
+    } catch (err) {
+      console.error('Alchemist error:', err);
+    } finally {
+      setMorphing(false);
+    }
+  };
+
+  // --- Ghost Chef (Voice) Logic ---
+  const speak = (text) => {
+    if (!voiceActive) return;
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    synth.speak(utterance);
+  };
+
+  const startVoiceMode = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Your browser doesn't support voice commands.");
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+      const command = event.results[event.results.length - 1][0].transcript.toLowerCase();
+      console.log('Voice Command:', command);
+
+      const currentR = morphedRecipe || recipe;
+
+      if (command.includes('next')) {
+        setCurrentStepVoice(prev => {
+          const next = Math.min(prev + 1, currentR.steps.length - 1);
+          speak(currentR.steps[next]);
+          return next;
+        });
+      } else if (command.includes('back') || command.includes('previous')) {
+        setCurrentStepVoice(prev => {
+          const next = Math.max(prev - 1, 0);
+          speak(currentR.steps[next]);
+          return next;
+        });
+      } else if (command.includes('repeat')) {
+        if (currentStepVoice >= 0) speak(currentR.steps[currentStepVoice]);
+      } else if (command.includes('ingredients')) {
+        speak(`You need ${currentR.ingredients.map(i => i.name).join(', ')}`);
+      } else if (command.includes('stop') || command.includes('cancel')) {
+        setVoiceActive(false);
+      }
+    };
+
+    recognition.onend = () => {
+      if (voiceActive) recognition.start();
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    speak("Ghost Chef activated. Say Next to read the first step.");
+  };
+
+  useEffect(() => {
+    if (voiceActive) {
+      startVoiceMode();
+    } else {
+      recognitionRef.current?.stop();
+      synth.cancel();
+    }
+    return () => recognitionRef.current?.stop();
+  }, [voiceActive]);
+
+  const displayRecipe = morphedRecipe || recipe;
 
   if (loading) return (
     <div className="h-[80vh] flex items-center justify-center">
@@ -44,32 +132,51 @@ const RecipeDetail = () => {
               {recipe.cuisine} • {recipe.difficulty}
             </span>
             <h1 className="text-4xl lg:text-7xl font-poiret uppercase tracking-tight leading-none">
-              {recipe.title}
+              {displayRecipe.title}
             </h1>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4 items-center">
+            {/* Ghost Chef Toggle */}
+            <button 
+              onClick={() => setVoiceActive(!voiceActive)}
+              className={`premium-card py-2 px-6 flex flex-col items-center transition-all ${voiceActive ? 'border-accent bg-accent/10 text-accent scale-105 shadow-lg shadow-accent/20' : 'hover:border-accent/30'}`}
+            >
+              <span className="text-xl">{voiceActive ? '🎙️' : '🔇'}</span>
+              <span className="text-[8px] uppercase tracking-widest font-bold">Ghost Chef</span>
+            </button>
+
             <div className="premium-card py-2 px-6 flex flex-col items-center">
-              <span className="text-xl font-poiret">{recipe.cookTime || '??'}</span>
+              <span className="text-xl font-poiret">{displayRecipe.cookTime || '??'}</span>
               <span className="text-[8px] uppercase tracking-widest text-primary/40">Minutes</span>
             </div>
             <div className="premium-card py-2 px-6 flex flex-col items-center">
-              <span className="text-xl font-poiret">{recipe.ingredients?.length || 0}</span>
+              <span className="text-xl font-poiret">{displayRecipe.ingredients?.length || 0}</span>
               <span className="text-[8px] uppercase tracking-widest text-primary/40">Items</span>
             </div>
           </div>
         </div>
 
-        {recipe.imageUrl && (
+        {displayRecipe.imageUrl && (
           <div className="w-full aspect-video rounded-[3rem] overflow-hidden border border-primary/5 shadow-2xl mb-8 relative bg-surface">
             <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-10 animate-pulse">
                🍳
             </div>
             <img 
-              src={recipe.imageUrl} 
-              alt={recipe.title} 
+              src={displayRecipe.imageUrl} 
+              alt={displayRecipe.title} 
               onLoad={(e) => { e.target.classList.remove('opacity-0'); }}
-              className="w-full h-full object-cover relative z-10 opacity-0 transition-opacity duration-1000" 
+              className={`w-full h-full object-cover relative z-10 transition-all duration-1000 ${morphing ? 'blur-xl scale-110 opacity-50' : 'opacity-100'}`} 
             />
+            {morphing && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center">
+                <div className="premium-card bg-white/10 backdrop-blur-md px-8 py-4 space-y-2 border-white/20 animate-fadeup">
+                  <div className="flex justify-center gap-1">
+                    {[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-white animate-bounce" style={{ animationDelay: `${i*0.2}s` }} />)}
+                  </div>
+                  <p className="font-poiret uppercase tracking-[0.2em] text-white">Culinary Alchemy in Progress...</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -78,10 +185,47 @@ const RecipeDetail = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <aside className="lg:col-span-1 space-y-8">
+          {/* Recipe Alchemist Panel */}
+          <div className="premium-card border-accent/20 bg-accent/5 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🧪</span>
+              <h3 className="text-[10px] uppercase tracking-[0.3em] text-accent font-bold">Recipe Alchemist</h3>
+            </div>
+            <p className="text-[9px] uppercase tracking-widest text-primary/40 leading-relaxed italic">
+              Mutate this recipe instantly with AI
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: 'Indianize', m: 'Add Indian spices and flavors', icon: '🇮🇳' },
+                { label: 'Veganize', m: 'Make it strictly vegan', icon: '🌱' },
+                { label: '10-Min Hack', m: 'Simplify for speed', icon: '⚡' },
+                { label: 'Kids Fav', m: 'Make it child-friendly and mild', icon: '👶' },
+              ].map(opt => (
+                <button 
+                  key={opt.label}
+                  disabled={morphing}
+                  onClick={() => handleMorph(opt.m)}
+                  className="flex flex-col items-center gap-1 p-2 rounded-xl border border-accent/10 bg-white/50 hover:bg-accent hover:text-white transition-all text-[9px] uppercase tracking-widest font-medium"
+                >
+                  <span className="text-lg">{opt.icon}</span>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {morphedRecipe && (
+              <button 
+                onClick={() => setMorphedRecipe(null)}
+                className="w-full pt-2 text-[8px] uppercase tracking-widest text-accent/50 hover:text-accent font-bold"
+              >
+                ↻ Restore Original
+              </button>
+            )}
+          </div>
+
           <div className="premium-card border-primary/5">
             <h3 className="text-sm uppercase tracking-[0.3em] text-primary border-b border-primary/5 pb-4 mb-6">Ingredients</h3>
             <ul className="space-y-4">
-              {recipe.ingredients.map((ing, i) => (
+              {displayRecipe.ingredients.map((ing, i) => (
                 <li key={i} className="flex flex-col">
                   <span className="text-xs font-medium text-primary leading-relaxed">{ing.name}</span>
                   {(ing.quantity || ing.note) && (
@@ -102,30 +246,32 @@ const RecipeDetail = () => {
               {/* Vertical line through steps for a continuous look */}
               <div className="absolute left-[1.15rem] top-8 bottom-8 w-px bg-primary/5"></div>
               
-              {recipe.steps.map((step, i) => (
-                <div key={i} className="flex gap-8 group relative bg-background">
+              {displayRecipe.steps.map((step, i) => (
+                <div key={i} className={`flex gap-8 group relative bg-background transition-all duration-500 ${currentStepVoice === i ? 'scale-105 z-20' : ''}`}>
                   <div className="flex flex-col items-center">
-                    <span className="w-10 h-10 rounded-full border border-primary/10 flex items-center justify-center text-sm font-poiret text-primary/40 group-hover:bg-primary group-hover:text-background transition-all duration-500 z-10 bg-background">
+                    <span className={`w-10 h-10 rounded-full border flex items-center justify-center text-sm font-poiret transition-all duration-500 z-10 ${currentStepVoice === i ? 'bg-accent text-background border-accent shadow-lg shadow-accent/30' : 'border-primary/10 text-primary/40 bg-background group-hover:bg-primary group-hover:text-background'}`}>
                       {i + 1}
                     </span>
                   </div>
-                  <p className="text-sm leading-[1.8] text-primary/80 font-light pt-2 max-w-prose">
-                    {step}
-                  </p>
+                  <div className={`flex-1 p-4 rounded-2xl transition-all duration-500 ${currentStepVoice === i ? 'bg-accent/5 border border-accent/20' : ''}`}>
+                    <p className={`text-sm leading-[1.8] font-light max-w-prose ${currentStepVoice === i ? 'text-primary font-normal' : 'text-primary/80'}`}>
+                      {step}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
           </section>
 
-          {recipe.notes && (
+          {displayRecipe.notes && (
             <footer className="bg-surface p-8 rounded-3xl border border-primary/5 flex flex-col md:flex-row justify-between items-center gap-6">
               <div className="space-y-2">
                 <h4 className="text-[10px] uppercase tracking-[0.3em] text-primary">Chef's Technical Notes</h4>
-                <p className="text-xs italic text-primary/60 leading-relaxed">"{recipe.notes}"</p>
+                <p className="text-xs italic text-primary/60 leading-relaxed">"{displayRecipe.notes}"</p>
               </div>
-              {recipe.sourceUrl && (
+              {displayRecipe.sourceUrl && (
                 <a 
-                  href={recipe.sourceUrl} 
+                  href={displayRecipe.sourceUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="btn-primary py-3 px-8 text-[10px] uppercase tracking-widest"

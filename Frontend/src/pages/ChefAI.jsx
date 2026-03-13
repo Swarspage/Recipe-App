@@ -17,7 +17,62 @@ const QUICK_MODES = [
 
 
 // Component that renders an AI-generated recipe beautifully
-const RecipeCanvas = ({ recipe, isGenerating }) => {
+const RecipeCanvas = ({ recipe, isGenerating, onMorph }) => {
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [currentStepVoice, setCurrentStepVoice] = useState(-1);
+  const [synth] = useState(window.speechSynthesis);
+  const recognitionRef = useRef(null);
+
+  const speak = (text) => {
+    if (!voiceActive) return;
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    synth.speak(utterance);
+  };
+
+  const startVoiceMode = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+      const command = event.results[event.results.length - 1][0].transcript.toLowerCase();
+      if (command.includes('next')) {
+        setCurrentStepVoice(prev => {
+          const next = Math.min(prev + 1, (recipe?.steps?.length || 1) - 1);
+          speak(recipe.steps[next]);
+          return next;
+        });
+      } else if (command.includes('back') || command.includes('previous')) {
+        setCurrentStepVoice(prev => {
+          const next = Math.max(prev - 1, 0);
+          speak(recipe.steps[next]);
+          return next;
+        });
+      } else if (command.includes('repeat')) {
+        if (currentStepVoice >= 0) speak(recipe.steps[currentStepVoice]);
+      } else if (command.includes('stop')) {
+        setVoiceActive(false);
+      }
+    };
+
+    recognition.onend = () => { if (voiceActive) recognition.start(); };
+    recognitionRef.current = recognition;
+    recognition.start();
+    speak("Ghost Chef activated.");
+  };
+
+  useEffect(() => {
+    if (voiceActive) startVoiceMode();
+    else { recognitionRef.current?.stop(); synth.cancel(); }
+    return () => recognitionRef.current?.stop();
+  }, [voiceActive]);
+
   if (isGenerating) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-6 p-12">
@@ -55,7 +110,14 @@ const RecipeCanvas = ({ recipe, isGenerating }) => {
           </div>
           <div className="flex items-start justify-between gap-3">
             <h1 className="font-poiret text-2xl lg:text-3xl text-primary leading-tight">{recipe.title}</h1>
-            <div className="flex-shrink-0 pt-1">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setVoiceActive(!voiceActive)}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${voiceActive ? 'bg-accent text-background border-accent shadow-lg shadow-accent/20' : 'bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20'}`}
+                title="Ghost Chef Voice Mode"
+              >
+                {voiceActive ? '🎙️' : '🔇'}
+              </button>
               <SaveButton recipeId={recipe._id} />
             </div>
           </div>
@@ -66,10 +128,36 @@ const RecipeCanvas = ({ recipe, isGenerating }) => {
           </div>
         </div>
 
-        {/* Ingredients + Steps */}
+        {/* Ingredients + Steps + Alchemist */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-2 space-y-3">
-            <h2 className="text-[9px] uppercase tracking-[0.3em] text-accent/60 font-bold">Ingredients</h2>
+          <div className="lg:col-span-2 space-y-6">
+            {/* Alchemist Panel */}
+            <div className="p-3 rounded-2xl bg-accent/5 border border-accent/10 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs">🧪</span>
+                <span className="text-[9px] uppercase tracking-[0.3em] text-accent font-bold">Recipe Alchemist</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Indianize', m: 'Add Indian spices', icon: '🇮🇳' },
+                  { label: 'Veganize', m: 'Make it vegan', icon: '🌱' },
+                  { label: '10-Min', m: 'Make it fast', icon: '⚡' },
+                  { label: 'Kids', m: 'Make it mild', icon: '👶' },
+                ].map(opt => (
+                  <button 
+                    key={opt.label}
+                    onClick={() => onMorph(opt.m)}
+                    className="flex items-center gap-1.5 p-1.5 rounded-lg border border-accent/10 bg-white/50 hover:bg-accent hover:text-white transition-all text-[8px] uppercase tracking-widest font-medium"
+                  >
+                    <span>{opt.icon}</span>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="text-[9px] uppercase tracking-[0.3em] text-accent/60 font-bold">Ingredients</h2>
             <ul className="space-y-1.5">
               {recipe.ingredients?.map((ing, i) => (
                 <li key={i} className="flex items-start gap-2 group">
@@ -82,18 +170,20 @@ const RecipeCanvas = ({ recipe, isGenerating }) => {
               ))}
             </ul>
           </div>
-          <div className="lg:col-span-3 space-y-3">
-            <h2 className="text-[9px] uppercase tracking-[0.3em] text-accent/60 font-bold">Method</h2>
-            <ol className="space-y-3">
-              {recipe.steps?.map((step, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="w-5 h-5 rounded-full border border-primary/10 flex items-center justify-center text-[9px] text-primary/40 font-bold flex-shrink-0 mt-0.5">{i + 1}</span>
-                  <p className="text-xs text-primary/70 leading-relaxed">{step}</p>
-                </li>
-              ))}
-            </ol>
-          </div>
+        </div> {/* End lg:col-span-2 */}
+
+        <div className="lg:col-span-3 space-y-3">
+          <h2 className="text-[9px] uppercase tracking-[0.3em] text-accent/60 font-bold">Method</h2>
+          <ol className="space-y-3">
+            {recipe.steps?.map((step, i) => (
+              <li key={i} className={`flex gap-3 transition-all duration-300 ${currentStepVoice === i ? 'scale-[1.02] bg-accent/5 p-2 rounded-xl border border-accent/10' : ''}`}>
+                <span className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5 ${currentStepVoice === i ? 'bg-accent text-background border-accent' : 'border-primary/10 text-primary/40'}`}>{i + 1}</span>
+                <p className={`text-xs leading-relaxed ${currentStepVoice === i ? 'text-primary font-medium' : 'text-primary/70'}`}>{step}</p>
+              </li>
+            ))}
+          </ol>
         </div>
+      </div> {/* End grid */}
 
         {/* Nutrition Table */}
         {recipe.nutrition && (
@@ -211,6 +301,8 @@ const ChefAI = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeRecipe, setActiveRecipe] = useState(null);
   const [loadingChats, setLoadingChats] = useState(true);
+  const [scanning, setScanning] = useState(false);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -340,6 +432,53 @@ const ChefAI = () => {
     }
   };
 
+  const handleVisionScan = async (e) => {
+    const file = e.target.files[0];
+    if (!file || isLoading) return;
+
+    setScanning(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64 = reader.result;
+        const data = await api('/ai/vision-pantry', { body: { image: base64 } });
+        if (data.ingredients?.length > 0) {
+          const ings = data.ingredients.join(', ');
+          sendMessage(`I have these ingredients: ${ings}. What should I cook?`);
+        }
+      };
+    } catch (err) {
+      console.error('Vision error:', err);
+    } finally {
+      setScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleMorph = async (mutation) => {
+    if (!activeRecipe || isLoading) return;
+    setIsLoading(true);
+    setIsGenerating(true);
+    try {
+      const data = await api('/ai/morph-recipe', { body: { recipe: activeRecipe, mutation } });
+      setActiveRecipe(data);
+      // Optional: Add a message to chat about the morph
+      const assistantMsg = {
+        role: 'assistant',
+        content: `Poof! I've morphed the recipe into ${data.title} (${mutation}).`,
+        recipeData: data,
+        _id: Date.now(),
+      };
+      setActiveChat(prev => ({ ...prev, messages: [...(prev?.messages || []), assistantMsg] }));
+    } catch (err) {
+      console.error('Morph error:', err);
+    } finally {
+      setIsLoading(false);
+      setIsGenerating(false);
+    }
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -444,6 +583,15 @@ const ChefAI = () => {
             className="w-full bg-surface/50 border border-primary/10 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-accent/40 transition-colors disabled:opacity-40 placeholder-primary/20"
           />
           <div className="flex gap-2">
+            <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleVisionScan} />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || scanning}
+              className={`w-10 h-9 rounded-xl border border-accent/20 text-accent flex items-center justify-center hover:bg-accent/10 transition-all ${scanning ? 'animate-pulse' : ''}`}
+              title="Kitchen Vision"
+            >
+              📸
+            </button>
             <button
               onClick={() => sendMessage()}
               disabled={!message.trim() || isLoading}
@@ -499,16 +647,25 @@ const ChefAI = () => {
               <textarea ref={inputRef} value={message} onChange={e => setMessage(e.target.value)} onKeyDown={handleKeyDown}
                 placeholder="Ask Chef AI about food only…" rows={2} disabled={isLoading}
                 className="w-full bg-surface/50 border border-primary/10 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-accent/40 transition-colors disabled:opacity-40 placeholder-primary/20" />
-              <button onClick={() => sendMessage()} disabled={!message.trim() || isLoading}
-                className="w-full btn-primary text-xs py-2 disabled:opacity-30">
-                {isLoading ? '...' : 'Send ↑'}
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading || scanning}
+                  className={`w-10 h-9 rounded-xl border border-accent/20 text-accent flex items-center justify-center hover:bg-accent/10 transition-all ${scanning ? 'animate-pulse' : ''}`}
+                >
+                  📸
+                </button>
+                <button onClick={() => sendMessage()} disabled={!message.trim() || isLoading}
+                  className="flex-1 btn-primary text-xs py-2 disabled:opacity-30">
+                  {isLoading ? '...' : 'Send ↑'}
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Recipe Canvas — 55% */}
           <div className="flex-1 overflow-y-auto">
-            <RecipeCanvas recipe={activeRecipe} isGenerating={isGenerating && !activeRecipe} />
+            <RecipeCanvas recipe={activeRecipe} isGenerating={isGenerating && !activeRecipe} onMorph={handleMorph} />
           </div>
         </div>
       </div>

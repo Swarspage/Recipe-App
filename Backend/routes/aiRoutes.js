@@ -16,6 +16,8 @@ router.delete('/chats/:id', auth, aiController.deleteChat);
 // Core AI chat endpoint
 router.post('/chat', auth, aiController.handleChat);
 router.post('/pantry-insight', aiController.getPantryInsight);
+router.post('/vision-pantry', auth, aiController.visionPantry);
+router.post('/morph-recipe', auth, aiController.morphRecipe);
 
 // Legacy
 router.delete('/chat', auth, aiController.clearChat);

@@ -199,6 +199,8 @@ const Search = () => {
   const [activeMoods, setActiveMoods] = useState([]);
   const [activeCategory, setActiveCategory] = useState(Object.keys(INGREDIENT_SHELF)[0]);
   const [customInput, setCustomInput] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const fileInputRef = useRef(null);
 
   const doSearch = useCallback(async (ings) => {
     if (ings.length === 0) { setResults([]); return; }
@@ -229,6 +231,33 @@ const Search = () => {
     setIngredients(next);
     setCustomInput('');
     doSearch(next);
+  };
+
+  const handleVisionScan = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setScanning(true);
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64 = reader.result;
+        const data = await api('/ai/vision-pantry', { body: { image: base64 } });
+        
+        if (data.ingredients?.length > 0) {
+          const newIngredients = [...new Set([...ingredients, ...data.ingredients.map(i => i.toLowerCase())])];
+          setIngredients(newIngredients);
+          doSearch(newIngredients);
+        }
+      };
+    } catch (err) {
+      console.error('Vision scan error:', err);
+    } finally {
+      setScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const toggleMood = (id) => setActiveMoods(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
@@ -292,8 +321,30 @@ const Search = () => {
                 onKeyDown={e => e.key === 'Enter' && addCustom()}
                 placeholder="Add custom ingredient…"
                 className="flex-1 input-field text-xs" />
-              <button onClick={addCustom}
+                <button onClick={addCustom}
                 className="btn-primary px-4 py-1 text-sm">+</button>
+            </div>
+
+            {/* Kitchen Vision Button */}
+            <div className="pt-2">
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment" 
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={handleVisionScan}
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={scanning}
+                className={`w-full py-2.5 rounded-xl border border-dashed border-accent/40 text-accent bg-accent/5 flex items-center justify-center gap-2 transition-all hover:bg-accent/10 ${scanning ? 'animate-pulse cursor-not-allowed opacity-50' : ''}`}
+              >
+                {scanning ? '🩻 Scanning Kitchen...' : '📸 Snap Fridge/Pantry'}
+              </button>
+              <p className="text-[8px] uppercase tracking-widest text-center text-primary/30 mt-2">
+                AI will detect ingredients from your photo
+              </p>
             </div>
           </div>
 

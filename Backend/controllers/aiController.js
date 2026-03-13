@@ -230,3 +230,72 @@ Return JSON: { "headline": "One punchy sentence about what they can make (max 12
   }
 };
 
+// POST /api/ai/vision-pantry { image: "base64..." }
+exports.visionPantry = async (req, res) => {
+  try {
+    const { image } = req.body;
+    if (!image) return res.status(400).json({ message: 'Image data is required' });
+
+    // Clean base64 string
+    const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
+
+    const prompt = "List all the individual food ingredients and pantry items you see in this kitchen/fridge/pantry image. Return ONLY a JSON object with a single key 'ingredients' which is an array of strings. Each string should be a single ingredient name (e.g. 'Tomato', 'Chicken', 'Milk'). Be as accurate as possible.";
+
+    const completion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${base64Image}`,
+              },
+            },
+          ],
+        },
+      ],
+      model: "llama-3.2-11b-vision-preview",
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content);
+    res.json(result);
+  } catch (err) {
+    console.error('[Vision Pantry Error]', err.message);
+    res.status(500).json({ message: 'Vision scanning failed', details: err.message });
+  }
+};
+
+// POST /api/ai/morph-recipe { recipe, mutation }
+exports.morphRecipe = async (req, res) => {
+  try {
+    const { recipe, mutation } = req.body;
+    if (!recipe || !mutation) return res.status(400).json({ message: 'Recipe and mutation are required' });
+
+    const prompt = `Take the following recipe and transform it based on this instruction: "${mutation}".
+STRICTLY return the updated recipe as a valid JSON object in the SAME format as the original. 
+Ensure the transformations (ingredients, steps, name) are logically sound and culinary-accurate.
+
+Original Recipe:
+${JSON.stringify(recipe)}`;
+
+    const completion = await groq.chat.completions.create({
+      messages: [
+        { role: 'system', content: 'You are an expert culinary alchemist. You only return valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      model: 'llama-3.3-70b-versatile',
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+    });
+
+    const morphed = JSON.parse(completion.choices[0].message.content);
+    res.json(morphed);
+  } catch (err) {
+    console.error('[Morph Recipe Error]', err.message);
+    res.status(500).json({ message: 'Recipe transformation failed' });
+  }
+};
+

@@ -15,6 +15,9 @@ const Navbar = () => {
           <Link to="/dashboard" className="hover:text-accent transition-colors">Dashboard</Link>
           <Link to="/search" className="hover:text-accent transition-colors">Pantry Finder</Link>
           <Link to="/chef" className="hover:text-accent transition-colors">Chef AI</Link>
+          <Link to="/lab" className="hover:text-accent transition-colors flex items-center gap-1">
+            <span className="text-accent">✧</span> Lab
+          </Link>
           {user && <Link to="/profile" className="hover:text-accent transition-colors">My Cookbook</Link>}
         </div>
 
