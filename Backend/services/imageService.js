@@ -34,19 +34,32 @@ async function getSimplifiedDishName(title) {
   }
 }
 
+const FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80', // Salad
+  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', // Veggie bowl
+  'https://images.unsplash.com/photo-1476224488681-aba3553ef8c1?auto=format&fit=crop&w=800&q=80', // Roast
+  'https://images.unsplash.com/photo-1484723046330-39909458bb97?auto=format&fit=crop&w=800&q=80', // Toast
+  'https://images.unsplash.com/photo-1473093226795-af9932fe5856?auto=format&fit=crop&w=800&q=80'  // Pasta
+];
+
 /**
  * Fetch and cache an image for a recipe from Pixabay.
  */
 exports.getAndCacheImage = async (recipe) => {
-  if (recipe.imageUrl && recipe.imageUrl.includes('pixabay.com')) return recipe.imageUrl;
-  if (!API_KEY) return null;
+  if (recipe.imageUrl && (recipe.imageUrl.startsWith('http') || recipe.imageUrl.includes('pixabay.com'))) return recipe.imageUrl;
+  
+  // Choose a semi-random fallback from our curated list as a baseline
+  const defaultFallback = FALLBACK_IMAGES[Math.floor(Math.random() * FALLBACK_IMAGES.length)];
+
+  if (!API_KEY) return defaultFallback;
 
   // Circuit Breaker check
-  if (Date.now() - LAST_429_TIME < COOLDOWN_PERIOD) return null;
+  if (Date.now() - LAST_429_TIME < COOLDOWN_PERIOD) return defaultFallback;
 
   try {
     const cleanTitle = await getSimplifiedDishName(recipe.title);
-    const query = `${cleanTitle} food`.replace(/[^\w\s]/g, '').trim();
+    // Add "photography" or "gourmet" to query for better results
+    const query = `${cleanTitle} gourmet food`.replace(/[^\w\s]/g, '').trim();
 
     const response = await axios.get(PIXABAY_API_URL, {
       params: {
@@ -73,9 +86,11 @@ exports.getAndCacheImage = async (recipe) => {
     if (err.response?.status === 429) {
       LAST_429_TIME = Date.now();
     }
+    console.error(`[ImageService] Failed to fetch for ${recipe.title}:`, err.message);
   }
 
-  return null;
+  // Final fallback if Pixabay had no hits or failed
+  return defaultFallback;
 };
 
 /**

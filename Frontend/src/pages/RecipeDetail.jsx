@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
 import api from '../utils/api';
+import { useParams, useNavigate } from 'react-router-dom';
 
 const RecipeDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,6 +40,23 @@ const RecipeDetail = () => {
       if (voiceActive) speak(`Poof! Your recipe is now ${data.title}`);
     } catch (err) {
       console.error('Alchemist error:', err);
+    } finally {
+      setMorphing(false);
+    }
+  };
+
+  const synthesizeRecipe = async () => {
+    setMorphing(true);
+    try {
+      const data = await api('/ai/synthesize-recipe', { body: { recipe: morphedRecipe || recipe } });
+      setMorphedRecipe(data);
+      // Transition to the new persistent recipe ID
+      if (data._id) {
+        navigate(`/recipe/${data._id}`, { replace: true });
+      }
+      if (voiceActive) speak("Recipe synthesized successfully! It is now detailed and complete.");
+    } catch (err) {
+      console.error('Synthesis error:', err);
     } finally {
       setMorphing(false);
     }
@@ -124,14 +142,26 @@ const RecipeDetail = () => {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-12">
-      <header className="space-y-6 text-center lg:text-left">
+    <div className="max-w-4xl mx-auto space-y-12 pb-20">
+      <header className="space-y-6">
+        <button 
+          onClick={() => navigate(-1)}
+          className="group flex items-center gap-2 text-[10px] font-black text-primary/40 uppercase tracking-[0.2em] hover:text-accent transition-colors"
+        >
+          <span className="group-hover:-translate-x-1 transition-transform">←</span> Back to Lab
+        </button>
+
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="space-y-2">
-            <span className="text-[10px] uppercase tracking-[0.4em] text-primary/60 font-medium">
-              {recipe.cuisine} • {recipe.difficulty}
-            </span>
-            <h1 className="text-4xl lg:text-7xl font-poiret uppercase tracking-tight leading-none">
+            <div className="flex items-center gap-3">
+               <span className="text-[10px] uppercase tracking-[0.4em] text-primary/60 font-medium">
+                {recipe.cuisine} • {recipe.difficulty}
+               </span>
+               {(!displayRecipe.steps || displayRecipe.steps.length < 3) && (
+                 <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[8px] font-bold uppercase tracking-widest border border-amber-500/20">Incomplete Draft</span>
+               )}
+            </div>
+            <h1 className="text-4xl lg:text-7xl font-poiret uppercase tracking-tight leading-none text-primary">
               {displayRecipe.title}
             </h1>
           </div>
@@ -167,6 +197,23 @@ const RecipeDetail = () => {
               onLoad={(e) => { e.target.classList.remove('opacity-0'); }}
               className={`w-full h-full object-cover relative z-10 transition-all duration-1000 ${morphing ? 'blur-xl scale-110 opacity-50' : 'opacity-100'}`} 
             />
+            
+            {/* AI Synthesis Overlay Call-to-Action */}
+            {(!displayRecipe.steps || displayRecipe.steps.length < 3) && !morphing && !morphedRecipe && (
+              <div className="absolute inset-x-0 bottom-10 z-20 flex justify-center">
+                <button 
+                  onClick={synthesizeRecipe}
+                  className="px-8 py-4 bg-white shadow-2xl rounded-2xl border border-primary/10 flex items-center gap-4 group hover:scale-105 transition-all active:scale-95"
+                >
+                   <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-xl group-hover:bg-accent group-hover:text-white transition-colors">✨</div>
+                   <div className="text-left">
+                     <p className="text-[10px] font-black text-primary uppercase tracking-widest">Recipe appears sparse</p>
+                     <p className="text-[9px] text-primary/40 uppercase tracking-widest">Synthesize full culinary blueprint now</p>
+                   </div>
+                </button>
+              </div>
+            )}
+
             {morphing && (
               <div className="absolute inset-0 z-20 flex items-center justify-center">
                 <div className="premium-card bg-white/10 backdrop-blur-md px-8 py-4 space-y-2 border-white/20 animate-fadeup">
@@ -212,6 +259,15 @@ const RecipeDetail = () => {
                 </button>
               ))}
             </div>
+            
+            <button 
+              onClick={synthesizeRecipe}
+              disabled={morphing}
+              className="w-full py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-accent transition-all shadow-xl shadow-primary/10 flex items-center justify-center gap-2"
+            >
+              ✨ Synthesize Full Recipe
+            </button>
+
             {morphedRecipe && (
               <button 
                 onClick={() => setMorphedRecipe(null)}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
 import SaveButton from '../components/SaveButton';
+import CulinaryBioForm from './CulinaryBioForm';
 
 const BOARDS = ['All Recipes', 'Weeknight Meals', 'Party Food', 'Diet Recipes', 'Weekend Cooking', 'Quick Bites', 'Favourites'];
 
@@ -169,12 +170,23 @@ const Profile = () => {
   const [profileData, setProfileData] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [activeBoard, setActiveBoard] = useState('All Recipes');
-  const [activeTab, setActiveTab] = useState('collection'); // 'collection' | 'ai'
+  const [activeTab, setActiveTab] = useState('collection'); // 'collection' | 'ai' | 'personalize'
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     loadSaved();
     loadTasteProfile();
+    loadUserProfile();
   }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const data = await api('/user/profile');
+      setUserProfile(data.culinaryProfile);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const loadSaved = async () => {
     try {
@@ -252,11 +264,26 @@ const Profile = () => {
             </div>
           </div>
         </div>
+        <div className="flex flex-col gap-2">
+          <button 
+            onClick={() => setActiveTab('personalize')}
+            className={`px-6 py-2 rounded-xl text-[10px] uppercase tracking-widest font-bold transition-all border ${activeTab === 'personalize' ? 'bg-accent text-background border-accent' : 'bg-accent/10 text-accent border-accent/20 hover:bg-accent hover:text-background'}`}
+          >
+            {userProfile?.meta?.onboardingComplete ? '⚙️ Update AI DNA' : '✨ Personalize Chef AI'}
+          </button>
+          {!userProfile?.meta?.onboardingComplete && (
+            <p className="text-[8px] uppercase tracking-widest text-accent/60 text-center animate-pulse">Personalization Required</p>
+          )}
+        </div>
       </header>
 
       {/* ── Tabs ── */}
       <div className="flex gap-1 border-b border-primary/5">
-        {[['collection', '📖 My Collection'], ['ai', '🤖 My Taste Profile']].map(([id, label]) => (
+        {[
+          ['collection', '📖 My Collection'], 
+          ['ai', '🤖 My Taste Profile'],
+          ['personalize', '🧬 AI Culinary DNA']
+        ].map(([id, label]) => (
           <button key={id} onClick={() => setActiveTab(id)}
             className={`px-5 py-2.5 text-[10px] uppercase tracking-widest transition-all border-b-2 -mb-px ${activeTab === id ? 'border-accent text-accent font-bold' : 'border-transparent text-primary/40 hover:text-primary/60'
               }`}>
@@ -367,6 +394,28 @@ const Profile = () => {
               ↻ Refresh AI Analysis
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── PERSONALIZE TAB ── */}
+      {activeTab === 'personalize' && (
+        <div className="animate-in fade-in zoom-in-95 duration-500">
+          <div className="text-center mb-8 space-y-2">
+            <h2 className="font-poiret text-3xl uppercase tracking-widest text-primary">AI Culinary DNA</h2>
+            <p className="text-[10px] uppercase tracking-widest text-primary/40">
+              {userProfile?.meta?.onboardingComplete 
+                ? "Your AI Chef is trained on your unique palate. Update your DNA below."
+                : "Complete your profile to train Chef AI on your unique preferences and constraints."}
+            </p>
+          </div>
+          <CulinaryBioForm 
+            initialData={userProfile} 
+            onComplete={(updated) => {
+              setUserProfile(updated);
+              setActiveTab('collection');
+              loadUserProfile();
+            }} 
+          />
         </div>
       )}
     </div>

@@ -45,7 +45,11 @@ exports.saveRecipe = async (req, res) => {
     const recipe = await Recipe.findById(recipeId);
     if (!recipe) {
       console.error('[Cookbook] Recipe not found:', recipeId);
-      return res.status(404).json({ message: 'Recipe not found — it may not have been saved to DB yet' });
+      // More helpful error for temporary/missing IDs
+      if (typeof recipeId === 'string' && recipeId.startsWith('temp-')) {
+          return res.status(404).json({ message: 'Cannot save a temporary recipe. Please wait for the final version or try refreshing.' });
+      }
+      return res.status(404).json({ message: 'Recipe not found in database. It may have been deleted.' });
     }
 
     const saved = await SavedRecipe.findOneAndUpdate(

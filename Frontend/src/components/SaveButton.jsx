@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../utils/api';
 
 const BOARDS = ['All Recipes', 'Weeknight Meals', 'Party Food', 'Diet Recipes', 'Weekend Cooking', 'Quick Bites', 'Favourites'];
@@ -72,6 +73,69 @@ const SaveButton = ({ recipeId, compact = false, onSaved }) => {
   const icon = loading ? '…' : (saved && hovering) ? '🚫' : saved ? '♥' : '♡';
   const label = saved ? (hovering ? 'Remove' : 'Saved!') : 'Save Recipe';
 
+  const modalContent = showModal && (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={() => setShowModal(false)}
+      style={{ background:'rgba(0,0,0,0.6)', backdropFilter:'blur(8px)' }}>
+      <div className="w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl bg-white animate-in zoom-in-95 duration-300"
+        onClick={e => e.stopPropagation()}>
+
+        <div className="flex items-center justify-between">
+          <h3 className="font-poiret text-xl text-primary uppercase tracking-widest">♥ Save Recipe</h3>
+          <button onClick={() => setShowModal(false)} className="text-primary/30 hover:text-primary text-xl">✕</button>
+        </div>
+
+        {/* Error inside modal */}
+        {error && <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+
+        {/* Board */}
+        <div className="space-y-2">
+          <label className="text-[8px] uppercase tracking-[0.3em] text-primary/40 font-bold">Collection</label>
+          <div className="flex flex-wrap gap-1.5">
+            {BOARDS.map(b => (
+              <button key={b} onClick={() => setBoard(b)}
+                className={`px-3 py-1 rounded-full text-[9px] uppercase tracking-wide border transition-all ${
+                  board === b ? 'bg-primary text-background border-primary' : 'bg-surface/50 text-primary/50 border-primary/10 hover:border-accent/40'
+                }`}>{b}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Rating */}
+        <div className="space-y-2">
+          <label className="text-[8px] uppercase tracking-[0.3em] text-primary/40 font-bold">Rating</label>
+          <div className="flex gap-1">
+            {[1,2,3,4,5].map(n => (
+              <button key={n} onClick={() => setRating(rating === n ? null : n)}
+                className={`text-2xl transition-all hover:scale-125 ${n <= (rating||0) ? 'text-amber-400' : 'text-primary/15 hover:text-amber-300'}`}>★</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div className="space-y-2">
+          <label className="text-[8px] uppercase tracking-[0.3em] text-primary/40 font-bold">Note to self</label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="e.g. reduce salt, great for parties…"
+            rows={2} className="w-full input-field text-xs resize-none" />
+        </div>
+
+        <button onClick={confirmSave} disabled={loading || !recipeId}
+          className="w-full btn-primary text-sm py-3 disabled:opacity-40 relative overflow-hidden transition-all active:scale-[0.98]"
+          style={{ background: loading ? '#ddd' : 'linear-gradient(135deg,#2A1A14,#5a3928)', cursor: loading ? 'not-allowed' : 'pointer' }}>
+          {loading ? (
+            <div className="flex items-center justify-center gap-2">
+               <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+               <span>Saving...</span>
+            </div>
+          ) : '♥ Save to My Cookbook'}
+        </button>
+
+        {!recipeId && <p className="text-[9px] text-center text-red-400 font-bold animate-pulse">Wait! Recipe still alchemizing...</p>}
+      </div>
+    </div>
+  );
+
   return (
     <>
       <style>{`@keyframes sv-ripple{to{width:220px;height:220px;opacity:0}}`}</style>
@@ -121,64 +185,8 @@ const SaveButton = ({ recipeId, compact = false, onSaved }) => {
         </div>
       )}
 
-      {/* Save modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowModal(false)}
-          style={{ background:'rgba(0,0,0,0.45)', backdropFilter:'blur(6px)' }}>
-          <div className="w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl bg-white"
-            onClick={e => e.stopPropagation()}>
-
-            <div className="flex items-center justify-between">
-              <h3 className="font-poiret text-xl text-primary uppercase tracking-widest">♥ Save Recipe</h3>
-              <button onClick={() => setShowModal(false)} className="text-primary/30 hover:text-primary text-xl">✕</button>
-            </div>
-
-            {/* Error inside modal */}
-            {error && <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
-
-            {/* Board */}
-            <div className="space-y-2">
-              <label className="text-[8px] uppercase tracking-[0.3em] text-primary/40 font-bold">Collection</label>
-              <div className="flex flex-wrap gap-1.5">
-                {BOARDS.map(b => (
-                  <button key={b} onClick={() => setBoard(b)}
-                    className={`px-3 py-1 rounded-full text-[9px] uppercase tracking-wide border transition-all ${
-                      board === b ? 'bg-primary text-background border-primary' : 'bg-surface/50 text-primary/50 border-primary/10 hover:border-accent/40'
-                    }`}>{b}</button>
-                ))}
-              </div>
-            </div>
-
-            {/* Rating */}
-            <div className="space-y-2">
-              <label className="text-[8px] uppercase tracking-[0.3em] text-primary/40 font-bold">Rating</label>
-              <div className="flex gap-1">
-                {[1,2,3,4,5].map(n => (
-                  <button key={n} onClick={() => setRating(rating === n ? null : n)}
-                    className={`text-2xl transition-all hover:scale-125 ${n <= (rating||0) ? 'text-amber-400' : 'text-primary/15 hover:text-amber-300'}`}>★</button>
-                ))}
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <label className="text-[8px] uppercase tracking-[0.3em] text-primary/40 font-bold">Note to self</label>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                placeholder="e.g. reduce salt, great for parties…"
-                rows={2} className="w-full input-field text-xs resize-none" />
-            </div>
-
-            <button onClick={confirmSave} disabled={loading || !recipeId}
-              className="w-full btn-primary text-sm py-3 disabled:opacity-40"
-              style={{ background:'linear-gradient(135deg,#2A1A14,#5a3928)' }}>
-              {loading ? 'Saving…' : '♥ Save to My Cookbook'}
-            </button>
-
-            {!recipeId && <p className="text-[9px] text-center text-primary/30">Waiting for recipe to finish saving…</p>}
-          </div>
-        </div>
-      )}
+      {/* Save modal via Portal to escape parent stacking context */}
+      {showModal && createPortal(modalContent, document.body)}
     </>
   );
 };

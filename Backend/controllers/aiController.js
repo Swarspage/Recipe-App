@@ -1,5 +1,6 @@
 const ChatSession = require('../models/ChatSession');
 const Recipe = require('../models/Recipe');
+const User = require('../models/User');
 const Groq = require('groq-sdk');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -126,6 +127,34 @@ exports.handleChat = async (req, res) => {
     const chat = await ChatSession.findOne({ _id: chatId, userId: req.session.userId });
     if (!chat) return res.status(404).json({ message: 'Chat session not found' });
 
+    // Fetch User Profile for Personalization
+    const user = await User.findById(req.session.userId).select('culinaryProfile');
+    let personalizedPrompt = CHEF_AI_SYSTEM_PROMPT;
+
+    if (user?.culinaryProfile?.meta?.onboardingComplete) {
+      const p = user.culinaryProfile;
+      const profileContext = `
+USER CULINARY PROFILE (MANDATORY TO RESPECT):
+- Home Cuisine: ${p.basics.homeCuisine} | Region: ${p.basics.currentRegion}
+- Heritage: ${p.basics.heritageStory}
+- Diet: ${p.dietary.primaryDiet} (Strictness: ${p.dietary.strictness}/10)
+- Allergies: ${p.dietary.allergies.join(', ') || 'None'}
+- Hated Ingredients: ${p.dietary.hatedIngredients.join(', ') || 'None'}
+- Flavor DNA: Spice:${p.flavorDNA.spiceLevel}, Sweet:${p.flavorDNA.sweetTooth}, Salt:${p.flavorDNA.saltIndex}, Umami:${p.flavorDNA.umamiFocus} (Scale 1-5)
+- Equipment Available: ${p.equipment.join(', ') || 'Standard Kitchen'}
+- Health Goals: ${p.goals.healthFocus} | Macros: ${p.goals.macroTarget}
+- Skill Level: ${p.meta.skillLevel}
+
+ALGORITHM INSTRUCTION:
+1. You MUST tailor recipes and advice to this profile.
+2. If a user asks for something that violates their diet or allergies, point it out.
+3. NEXT-LEVEL ENGAGEMENT: At the end of EVERY response, you MUST:
+   a) Briefly mention HOW you respected their profile (e.g., "I left out the cilantro as you hate it!").
+   b) ASK: "Would you like me to continue tailoring responses to your [Specific Preference, e.g., Vegan] profile, or should we try something different?"
+`;
+      personalizedPrompt += profileContext;
+    }
+
     // Build conversation history for Groq (last 10 messages for context window)
     const contextHistory = chat.messages.slice(-10).map(m => ({
       role: m.role,
@@ -138,7 +167,7 @@ exports.handleChat = async (req, res) => {
     // Call Groq with the system prompt + conversation history
     const completion = await groq.chat.completions.create({
       messages: [
-        { role: 'system', content: CHEF_AI_SYSTEM_PROMPT },
+        { role: 'system', content: personalizedPrompt },
         ...contextHistory
       ],
       model: 'llama-3.3-70b-versatile',
@@ -162,19 +191,26 @@ exports.handleChat = async (req, res) => {
       chat.title = message.slice(0, 50);
     }
 
-    // Handle recipe auto-save
+    // Handle recipe auto-save (CRITICAL for saving flow)
     let savedRecipeId = null;
     if (aiResponse.recipe && aiResponse.recipe.title) {
       try {
-        const newRecipe = new Recipe({
+        // Build thorough recipe object to ensure consistency
+        const recipeToSave = {
           ...aiResponse.recipe,
           ownerId: req.session.userId,
-          tags: [...(aiResponse.recipe.tags || []), 'chef-ai', 'ai-generated'],
-        });
+          tags: [...new Set([...(aiResponse.recipe.tags || []), 'chef-ai', 'ai-generated'])],
+        };
+        
+        // Ensure we don't accidentally try to save with a provided ID or empty string
+        delete recipeToSave._id;
+
+        const newRecipe = new Recipe(recipeToSave);
         await newRecipe.save();
         savedRecipeId = newRecipe._id;
+        console.log(`[Chef AI] Automatically persisted recipe: ${newRecipe.title} (${savedRecipeId})`);
       } catch (saveErr) {
-        console.error('[Chef AI] Recipe save failed:', saveErr.message);
+        console.error('[Chef AI] Recipe auto-save failed:', saveErr.message);
       }
     }
 
@@ -268,6 +304,46 @@ exports.visionPantry = async (req, res) => {
   }
 };
 
+// POST /api/ai/pantry-labs { ingredients, recipeTitle, recipeIngredients }
+exports.pantryLabs = async (req, res) => {
+  try {
+    const { ingredients, recipeTitle, recipeIngredients } = req.body;
+    if (!ingredients || !recipeTitle) return res.status(400).json({ message: 'Ingredients and recipe details required' });
+
+    const user = await User.findById(req.session.userId).select('culinaryProfile');
+    const p = user?.culinaryProfile || {};
+
+    const prompt = `You are the "Culinary Alchemist". A user has these ingredients: ${ingredients.join(', ')}.
+They found a recipe: "${recipeTitle}" which requires: ${recipeIngredients.join(', ')}.
+
+USER DNA CONTEXT:
+- Equipment: ${p.equipment?.join(', ') || 'Standard'}
+- Spice Tolerance: ${p.flavorDNA?.spiceLevel}/5
+- Hated: ${p.dietary?.hatedIngredients?.join(', ') || 'None'}
+
+TASK:
+1. Identify the 1-2 CRITICAL missing ingredients.
+2. Provide a "Lab Hack" (a clever substitution or technique) to morph their current ingredients into this dish.
+3. Give an "Alchemy Score" (0-100) based on how well this hack works.
+
+RETURN JSON: { "hack": "Short catchy title", "instruction": "Step-by-step morphing tip (max 25 words)", "alchemyScore": number, "isDNAMatch": boolean }`;
+
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'llama-3.1-8b-instant',
+      response_format: { type: 'json_object' },
+      temperature: 0.8,
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content);
+    res.json(result);
+  } catch (err) {
+    console.error('[Pantry Labs Error]', err.message);
+    res.status(500).json({ message: 'Alchemy failed' });
+  }
+};
+
+
 // POST /api/ai/morph-recipe { recipe, mutation }
 exports.morphRecipe = async (req, res) => {
   try {
@@ -299,3 +375,67 @@ ${JSON.stringify(recipe)}`;
   }
 };
 
+// POST /api/ai/synthesize-recipe { recipe }
+exports.synthesizeRecipe = async (req, res) => {
+  console.log('[Synthesize] Request received for:', req.body.recipe?.title);
+  try {
+    const { recipe } = req.body;
+    if (!recipe || !recipe.title) return res.status(400).json({ message: 'Recipe data is required' });
+
+    const prompt = `You are a Master Culinary Architect. I will give you a sparse recipe entry (possibly missing steps, full ingredient details, or nutrition). 
+Your task is to SYNTHESIZE this into a professional, long-form, and highly detailed culinary guide.
+
+REQUIREMENTS:
+1. INFUSE soul and detail into the "steps". Make them sensible, professional, and easy to follow.
+2. EXPAND "ingredients" with professional notes or specific varieties where it makes sense (e.g., "Basmati Rice" instead of "Rice").
+3. GENERATE full "nutrition" facts logically based on the dish.
+4. Add a "notes" section with one expert secret tip.
+5. Title must remain consistent or be slightly improved for polish.
+6. RETURN ONLY VALID JSON matching the established recipe schema.
+
+SPARSE RECIPE DATA:
+${JSON.stringify(recipe)}
+
+RESPONSE FORMAT:
+{
+  "title": "string",
+  "ingredients": [{"name": "string", "quantity": "string", "note": "string"}],
+  "steps": ["detailed step 1", "detailed step 2", ...],
+  "cuisine": "string",
+  "cookTime": number,
+  "difficulty": "easy|medium|hard",
+  "tags": ["string"],
+  "notes": "expert tip",
+  "nutrition": { "calories": "...", "protein": "...", "carbs": "...", "fat": "..." }
+}`;
+
+    const completion = await groq.chat.completions.create({
+      messages: [
+        { role: 'system', content: 'You are a Master Culinary Architect. You only return valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      model: 'llama-3.3-70b-versatile',
+      response_format: { type: 'json_object' },
+      temperature: 0.6,
+    });
+
+    const synthesized = JSON.parse(completion.choices[0].message.content);
+
+    // PERSISTENCE & CACHING:
+    // Create a new recipe document for this synthesized version
+    // This effectively "caches" it and makes it available in the user's profile
+    const newRecipe = new Recipe({
+      ...synthesized,
+      ownerId: req.session.userId,
+      tags: [...(synthesized.tags || []), 'ai-synthesized', 'culinary-lab'],
+      originalRecipeId: recipe._id || null // Link back to original if exists
+    });
+    
+    await newRecipe.save();
+
+    res.json({ ...synthesized, _id: newRecipe._id });
+  } catch (err) {
+    console.error('[Synthesize Recipe Error]', err.message);
+    res.status(500).json({ message: 'Recipe synthesis failed' });
+  }
+};

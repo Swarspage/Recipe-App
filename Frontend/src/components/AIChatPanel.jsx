@@ -24,7 +24,8 @@ const AIChatPanel = ({ onApplyFilter }) => {
       const aiMsg = { 
         role: 'ai', 
         content: response.reply,
-        suggestions: response.suggestions
+        suggestions: response.suggestions,
+        recipeId: response.recipeId
       };
       
       setMessages(prev => [...prev, aiMsg]);
@@ -46,6 +47,15 @@ const AIChatPanel = ({ onApplyFilter }) => {
                 : 'bg-surface text-primary border border-primary/5 rounded-tl-none'
             }`}>
               {msg.content}
+              
+              {/* Recipe Save Integration */}
+              {msg.recipeId && (
+                <div className="mt-4 pt-4 border-t border-primary/5 flex items-center justify-between">
+                  <div className="text-[9px] font-bold text-accent uppercase tracking-widest">Recipe Generated</div>
+                  <SaveButton recipeId={msg.recipeId} compact />
+                </div>
+              )}
+
               {msg.suggestions && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {msg.suggestions.map((s, j) => (

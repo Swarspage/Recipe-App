@@ -171,7 +171,7 @@ const Home = () => {
             {/* Stats */}
             <div className="flex gap-8 pt-4 animate-fadeup" style={{ animationDelay: '0.65s' }}>
               {[
-                { value: 500, suffix: '+', label: 'Recipes' },
+                { value: 97000, suffix: '+', label: 'Recipes' },
                 { value: 12, suffix: '', label: 'Cuisines' },
                 { value: 100, suffix: '%', label: 'AI Powered' },
               ].map(({ value, suffix, label }) => (

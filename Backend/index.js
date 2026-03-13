@@ -7,6 +7,7 @@ const authRoutes = require('./routes/authRoutes');
 const recipeRoutes = require('./routes/recipeRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const cookbookRoutes = require('./routes/cookbookRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 require('dotenv').config();
 
@@ -45,6 +46,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/cookbook', cookbookRoutes);
+app.use('/api/user', userRoutes);
 
 
 // Basic Route
@@ -55,3 +57,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+ 

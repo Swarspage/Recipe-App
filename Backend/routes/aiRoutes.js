@@ -17,7 +17,9 @@ router.delete('/chats/:id', auth, aiController.deleteChat);
 router.post('/chat', auth, aiController.handleChat);
 router.post('/pantry-insight', aiController.getPantryInsight);
 router.post('/vision-pantry', auth, aiController.visionPantry);
+router.post('/pantry-labs', auth, aiController.pantryLabs);
 router.post('/morph-recipe', auth, aiController.morphRecipe);
+router.post('/synthesize-recipe', auth, aiController.synthesizeRecipe);
 
 // Legacy
 router.delete('/chat', auth, aiController.clearChat);

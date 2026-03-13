@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
+import { useSearchParams } from 'react-router-dom';
 import SaveButton from '../components/SaveButton';
 
 // ── Ingredient shelf ──────────────────────────────────────────────────────────
@@ -12,13 +13,12 @@ const INGREDIENT_SHELF = {
   '🌶 Spices': ['Turmeric', 'Cumin', 'Coriander', 'Garam Masala', 'Red Chilli', 'Ginger', 'Garlic'],
 };
 
-const MOODS = [
-  { id: 'spicy', emoji: '🔥', label: 'Spicy', tags: ['spicy', 'hot'] },
-  { id: 'comfort', emoji: '😌', label: 'Comfort', tags: ['comfort', 'creamy', 'dal'] },
-  { id: 'quick', emoji: '⚡', label: 'Quick 15m', cookTime: 15 },
-  { id: 'party', emoji: '🎉', label: 'Party', tags: ['party', 'snack', 'starter'] },
-  { id: 'healthy', emoji: '🥗', label: 'Healthy', tags: ['healthy', 'light'] },
-];
+const DNA_WEIGHTS = {
+  cuisine: 40,
+  equipment: 30,
+  spice: 20,
+  difficulty: 10
+};
 
 // ── Match progress bar ────────────────────────────────────────────────────────
 const MatchBar = ({ matchCount, total }) => {
@@ -39,9 +39,27 @@ const MatchBar = ({ matchCount, total }) => {
 };
 
 // ── Recipe Card ───────────────────────────────────────────────────────────────
-const RecipeResultCard = ({ recipe, isReady }) => {
+const RecipeResultCard = ({ recipe, isReady, dnaMatch, alchemyHack }) => {
   const [imgSrc, setImgSrc] = useState(recipe.imageUrl);
+  const [labHack, setLabHack] = useState(null);
+  const [loadingHack, setLoadingHack] = useState(false);
   const cardRef = useRef(null);
+
+  const fetchHack = async () => {
+    if (labHack || loadingHack) return;
+    setLoadingHack(true);
+    try {
+      const data = await api('/ai/pantry-labs', { 
+        body: { 
+          ingredients: recipe.ingredientsMatched || [], 
+          recipeTitle: recipe.title,
+          recipeIngredients: recipe.ingredients || []
+        } 
+      });
+      setLabHack(data);
+    } catch (err) { console.error(err); }
+    finally { setLoadingHack(false); }
+  };
 
   useEffect(() => {
     if (imgSrc || !recipe._id) return;
@@ -57,75 +75,94 @@ const RecipeResultCard = ({ recipe, isReady }) => {
     return () => observer.disconnect();
   }, [recipe._id, imgSrc]);
 
-  const total = recipe.ingredients?.length || 1;
-  const isOneAway = recipe.missingCount === 1;
+  const handleImageError = () => {
+    // Elegant fallback image if the URL fails to load
+    setImgSrc('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80');
+  };
 
   return (
-    <div ref={cardRef} className="premium-card group flex flex-col overflow-hidden !p-0">
+    <div ref={cardRef} className="group relative flex flex-col rounded-2xl border border-primary/10 bg-white shadow-sm overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+      
+      {/* DNA Match Overlay */}
+      {dnaMatch > 70 && (
+        <div className="absolute top-3 left-3 z-10 px-3 py-1.5 rounded-full bg-accent text-white shadow-lg flex items-center gap-2">
+           <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+           <span className="text-[10px] font-black uppercase tracking-widest">{dnaMatch}% DNA Match</span>
+        </div>
+      )}
 
-      {/* Clickable image area */}
-      <Link to={`/recipe/${recipe._id}`} className="block">
-        <div className="relative h-40 overflow-hidden rounded-t-2xl">
-          {imgSrc ? (
-            <img src={imgSrc} alt={recipe.title}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-          ) : (
-            <div className="w-full h-full bg-surface flex items-center justify-center">
-              <span className="text-4xl opacity-20">🍽</span>
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-primary/30 to-transparent" />
-
-          {/* Badges */}
-          <div className="absolute top-2 left-2 flex gap-1.5">
-            {isReady && (
-              <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-full font-bold bg-green-600 text-white">
-                ✔ Cook Now
-              </span>
-            )}
-            {isOneAway && !isReady && (
-              <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-full font-bold bg-amber-500 text-white">
-                1 Away
-              </span>
-            )}
+      {/* Image Block */}
+      <Link to={`/recipe/${recipe._id}`} className="relative h-48 overflow-hidden bg-primary/5">
+        {imgSrc ? (
+          <img 
+            src={imgSrc} 
+            alt={recipe.title} 
+            onError={handleImageError}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center space-y-2 opacity-30">
+            <span className="text-4xl">🍳</span>
+            <span className="text-[8px] font-black uppercase tracking-widest">Alchemizing Image...</span>
           </div>
-          {recipe.cookTime && (
-            <div className="absolute top-2 right-2 text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-primary/60 text-background">
-              ⏱ {recipe.cookTime}m
-            </div>
-          )}
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+        
+        <div className="absolute bottom-3 right-3 flex gap-2">
+          {isReady ? (
+            <span className="px-3 py-1.5 bg-green-600 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest shadow-md">Ready to Cook</span>
+          ) : recipe.missingCount === 1 ? (
+             <span className="px-3 py-1.5 bg-amber-500 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest shadow-md">1 Missing</span>
+          ) : null}
         </div>
       </Link>
 
-      {/* Content */}
-      <div className="p-4 space-y-3 flex flex-col flex-1">
-        <div className="flex-1">
+      <div className="p-5 space-y-4 flex flex-col flex-1">
+        <div className="space-y-1.5">
           <Link to={`/recipe/${recipe._id}`}>
-            <h3 className="font-poiret text-base text-primary leading-snug group-hover:text-accent transition-colors line-clamp-2">
+            <h3 className="font-poiret text-xl text-primary group-hover:text-accent transition-colors line-clamp-2 leading-tight uppercase font-bold tracking-tight">
               {recipe.title}
             </h3>
           </Link>
-          <div className="flex gap-2 mt-1 text-[9px] uppercase tracking-widest text-primary/40">
-            {recipe.cuisine && <span>{recipe.cuisine}</span>}
-            {recipe.difficulty && <span>· {recipe.difficulty}</span>}
+          <div className="flex items-center gap-3 text-[11px] font-bold text-primary/60 uppercase tracking-widest">
+            <span className="text-accent">{recipe.cuisine || 'Global'}</span>
+            <span className="w-1 h-1 rounded-full bg-primary/20" />
+            <span>{recipe.cookTime || '20'} MINS</span>
           </div>
         </div>
 
-        {/* Missing hint */}
-        {recipe.missingIngredients?.length > 0 && recipe.missingCount <= 2 && (
-          <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
-            Missing: {recipe.missingIngredients.slice(0, 3).join(', ')}
+        {/* Alchemy Lab Hack */}
+        {!isReady && (
+          <div className="space-y-2">
+            {labHack ? (
+              <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 animate-in fade-in zoom-in-95 duration-300">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm">🧪</span>
+                  <span className="text-[11px] font-black text-accent uppercase tracking-widest leading-none">Alchemy Hack</span>
+                </div>
+                <p className="text-xs text-primary/80 leading-relaxed italic font-medium">"{labHack.instruction}"</p>
+              </div>
+            ) : (
+              <button 
+                onClick={(e) => { e.preventDefault(); fetchHack(); }}
+                disabled={loadingHack}
+                className="w-full py-3 bg-accent/5 border border-dashed border-accent/30 rounded-xl text-[11px] font-black text-accent uppercase tracking-widest hover:bg-accent/10 transition-all flex items-center justify-center gap-2"
+              >
+                {loadingHack ? (
+                  <span className="w-4 h-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                ) : '🔮 Unlock Alchemy Hack'}
+              </button>
+            )}
           </div>
         )}
 
-        <MatchBar matchCount={recipe.matchCount || 0} total={total} />
-
-        {/* Footer: Save + View */}
-        <div className="flex items-center justify-between pt-2 border-t border-primary/5">
+        <div className="mt-auto pt-4 flex items-center justify-between border-t border-primary/10">
           <SaveButton recipeId={recipe._id} compact />
-          <Link to={`/recipe/${recipe._id}`}
-            className="text-[9px] uppercase tracking-widest font-bold text-accent hover:underline">
-            View →
+          <Link 
+            to={`/recipe/${recipe._id}`}
+            className="px-4 py-2 bg-primary/5 hover:bg-accent hover:text-white rounded-full text-[11px] font-bold text-primary transition-all uppercase tracking-widest"
+          >
+            Experiment →
           </Link>
         </div>
       </div>
@@ -193,20 +230,71 @@ const SectionHeader = ({ label, count, color }) => (
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 const Search = () => {
-  const [ingredients, setIngredients] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [ingredients, setIngredients] = useState(() => {
+    const p = searchParams.get('q');
+    return p ? p.split(',').map(s => s.trim().toLowerCase()) : [];
+  });
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [activeMoods, setActiveMoods] = useState([]);
   const [activeCategory, setActiveCategory] = useState(Object.keys(INGREDIENT_SHELF)[0]);
   const [customInput, setCustomInput] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [alchemyMode, setAlchemyMode] = useState(() => searchParams.get('alchemy') === 'true');
+  const [userProfile, setUserProfile] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await api('/user/profile');
+        setUserProfile(data.culinaryProfile);
+      } catch (err) { console.error(err); }
+    };
+    fetchProfile();
+    if (ingredients.length > 0) doSearch(ingredients);
+  }, []);
+
+  // Update URL params when state changes
+  useEffect(() => {
+    const params = {};
+    if (ingredients.length > 0) params.q = ingredients.join(',');
+    if (alchemyMode) params.alchemy = 'true';
+    setSearchParams(params, { replace: true });
+  }, [ingredients, alchemyMode]);
+
+  const calculateDNAMatch = (recipe) => {
+    if (!userProfile) return 0;
+    let score = 0;
+    
+    // 1. Cuisine Match
+    if (recipe.cuisine?.toLowerCase() === userProfile.basics?.homeCuisine?.toLowerCase()) score += DNA_WEIGHTS.cuisine;
+    
+    // 2. Equipment Match
+    const eqMatch = userProfile.equipment?.some(eq => 
+      recipe.steps?.some(s => s.toLowerCase().includes(eq.toLowerCase())) ||
+      recipe.tags?.some(t => t.toLowerCase().includes(eq.toLowerCase()))
+    );
+    if (eqMatch) score += DNA_WEIGHTS.equipment;
+
+    // 3. Spice Match
+    const isSpicy = recipe.tags?.some(t => ['spicy', 'hot', 'chilli'].includes(t.toLowerCase()));
+    const userWantsSpicy = userProfile.flavorDNA?.spiceLevel >= 4;
+    if (isSpicy === userWantsSpicy) score += DNA_WEIGHTS.spice;
+
+    // 4. Difficulty Match
+    const skillMap = { 'Beginner': 'easy', 'Intermediate': 'medium', 'Advanced': 'hard' };
+    const userSkill = skillMap[userProfile.meta?.skillLevel] || 'medium';
+    if (recipe.difficulty?.toLowerCase() === userSkill) score += DNA_WEIGHTS.difficulty;
+
+    return Math.min(score + 30, 99); // Base matching + cap
+  };
 
   const doSearch = useCallback(async (ings) => {
     if (ings.length === 0) { setResults([]); return; }
     setLoading(true);
     try {
-      const data = await api(`/recipes/search?ingredients=${encodeURIComponent(ings.join(','))}&limit=24`);
+      const data = await api(`/recipes/search?ingredients=${encodeURIComponent(ings.join(','))}&limit=40`);
       setResults(data.items || []);
     } catch (err) {
       console.error(err);
@@ -260,220 +348,182 @@ const Search = () => {
     }
   };
 
-  const toggleMood = (id) => setActiveMoods(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
-
-  // Client-side mood filter
-  const filtered = results.filter(r => {
-    if (activeMoods.length === 0) return true;
-    return MOODS.filter(m => activeMoods.includes(m.id)).some(mood => {
-      if (mood.cookTime) return r.cookTime && r.cookTime <= mood.cookTime;
-      return mood.tags?.some(t => r.tags?.includes(t));
-    });
-  });
-
-  const readyNow = filtered.filter(r => r.missingCount === 0);
-  const oneAway = filtered.filter(r => r.missingCount === 1);
-  const potential = filtered.filter(r => r.missingCount > 1);
+  const readyNow = results.filter(r => r.missingCount === 0);
+  const alchemyPotential = results.filter(r => r.missingCount >= 1 && r.missingCount <= 3);
 
   return (
-    <div className="space-y-10 mt-16">
-
-      {/* ── Header ── */}
-      <header className="space-y-2">
-        <div className="flex items-center gap-4">
-          <span className="text-4xl">🧑‍🍳</span>
-          <div>
-            <h1 className="font-poiret text-4xl lg:text-5xl uppercase tracking-widest text-primary">Fridge-to-Fork</h1>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-primary/40 mt-0.5">
-              Tell us what's in your pantry · AI finds the perfect dish
-            </p>
+    <div className="max-w-7xl mx-auto px-4 py-16 space-y-12">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 border-b border-primary/10 pb-10">
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 border border-accent/20 text-[11px] font-bold text-accent uppercase tracking-widest">
+            <span className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-[0_0_8px_rgba(255,107,0,0.5)]" />
+            Lab Discovery Suite
           </div>
+          <h1 className="font-poiret text-5xl md:text-7xl uppercase tracking-widest text-primary leading-none">
+            Pantry <span className="text-accent underline decoration-accent/20 underline-offset-8">Alchemy</span>
+          </h1>
+          <p className="text-sm text-primary/60 uppercase tracking-widest font-semibold max-w-xl">
+            Reveal personalized culinary potential across 97,000 global recipes.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-5 bg-white p-4 rounded-3xl border border-primary/10 shadow-sm">
+           <div className="flex flex-col items-end">
+              <span className="text-[11px] font-bold text-primary/40 uppercase tracking-widest">Alchemy Mode</span>
+              <span className={`text-xs font-black uppercase tracking-widest ${alchemyMode ? 'text-accent' : 'text-primary/20'}`}>{alchemyMode ? 'Active' : 'Standby'}</span>
+           </div>
+           <button 
+             onClick={() => setAlchemyMode(!alchemyMode)}
+             className={`w-16 h-9 rounded-full transition-all duration-300 relative shadow-inner ${alchemyMode ? 'bg-accent' : 'bg-primary/5'}`}
+           >
+              <div className={`absolute top-1.5 w-6 h-6 rounded-full bg-white transition-all duration-300 shadow-md ${alchemyMode ? 'left-8' : 'left-2'}`} />
+           </button>
         </div>
       </header>
 
-      {/* ── Main Grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-8 items-start">
+      {/* HORIZONTAL PANTRY TOOLS */}
+      <div className="space-y-8">
+        <section className="p-6 rounded-[2.5rem] bg-white border border-primary/10 shadow-sm grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          
+          {/* Elements Selection */}
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Pantry Elements</h2>
+              <span className="text-[10px] font-black text-accent bg-accent/5 px-3 py-1 rounded-lg border border-accent/10">{ingredients.length}</span>
+            </div>
 
-        {/* LEFT PANEL */}
-        <aside className="lg:col-span-3 space-y-5 lg:sticky top-24">
+            <div className="flex flex-wrap gap-2">
+              {ingredients.length === 0 ? (
+                <div className="w-full text-center py-4 border-2 border-dashed border-primary/5 rounded-2xl bg-primary/[0.02]">
+                  <p className="text-[9px] text-primary/30 uppercase tracking-widest font-bold italic">No elements detected</p>
+                </div>
+              ) : ingredients.map(ing => (
+                <button key={ing} onClick={() => toggleIngredient(ing)}
+                  className="px-3 py-1.5 rounded-xl bg-primary text-white text-[9px] font-bold uppercase tracking-widest transition-all hover:bg-accent hover:-translate-y-0.5 shadow-md shadow-primary/10">
+                  {ing} <span className="ml-1 opacity-50 font-normal">✕</span>
+                </button>
+              ))}
+            </div>
 
-          {/* Your Pantry */}
-          <div className="premium-card !p-4 space-y-3 border-accent/20">
-            <div className="text-[8px] uppercase tracking-[0.3em] text-accent font-bold">Your Pantry</div>
+            <div className="flex gap-2">
+              <input type="text" value={customInput} onChange={e => setCustomInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustom()}
+                placeholder="ADD ELEMENT..." className="flex-1 bg-primary/[0.02] border border-primary/10 rounded-2xl px-4 py-2 text-[9px] font-bold text-primary uppercase tracking-[0.1em] outline-none transition-all focus:border-accent focus:bg-white focus:ring-4 focus:ring-accent/5" />
+              <button onClick={addCustom} className="px-5 rounded-2xl bg-primary text-white font-bold hover:bg-accent transition-all shadow-lg shadow-primary/10">+</button>
+              <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleVisionScan} />
+              <button onClick={() => fileInputRef.current?.click()} disabled={scanning}
+                className={`px-6 py-2 rounded-2xl bg-gradient-to-r from-primary to-slate-800 text-white text-[9px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-xl ${scanning ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {scanning ? '🧬...' : '📸 SCAN'}
+              </button>
+            </div>
+          </div>
 
-            {ingredients.length === 0 ? (
-              <p className="text-xs text-primary/30 italic">Click ingredients below to add them…</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {ingredients.map(ing => (
-                  <button key={ing} onClick={() => toggleIngredient(ing)}
-                    className="group flex items-center gap-1 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider bg-primary text-background hover:bg-accent transition-all">
-                    {ing} <span className="opacity-50 group-hover:opacity-100">✕</span>
-                  </button>
-                ))}
-              </div>
+          <div className="space-y-4">
+             <InsightBanner ingredients={ingredients} />
+          </div>
+        </section>
+
+        {/* Elemental Shelf (Categories as Toggle Buttons) */}
+        <section className="p-6 rounded-[2.5rem] bg-primary/[0.02] border border-primary/5 space-y-6">
+          <div className="flex flex-wrap gap-2">
+            {Object.keys(INGREDIENT_SHELF).map(cat => (
+              <button key={cat} onClick={() => setActiveCategory(cat)}
+                className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${activeCategory === cat ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20 scale-105' : 'bg-white border-primary/10 text-primary/40 hover:text-primary hover:border-primary/30'}`}>
+                {cat}
+              </button>
+            ))}
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            {INGREDIENT_SHELF[activeCategory]?.map(ing => {
+              const on = ingredients.includes(ing.toLowerCase());
+              return (
+                <button key={ing} onClick={() => toggleIngredient(ing)}
+                  className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest border transition-all ${on ? 'bg-primary text-white border-primary shadow-md' : 'bg-white border-primary/10 text-primary/60 hover:border-primary/30 hover:bg-white active:scale-95'}`}>
+                  {ing}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      {/* RESULTS DECK */}
+      <main className="space-y-16">
+        
+        {ingredients.length === 0 ? (
+          <div className="h-[40vh] flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in zoom-in-95 duration-700">
+             <div className="w-20 h-20 rounded-full bg-primary/5 border border-primary/10 flex items-center justify-center text-6xl opacity-20">⌬</div>
+             <div className="space-y-4">
+               <h2 className="font-poiret text-4xl text-primary/10 uppercase tracking-[0.4em]">Initialize Pantry</h2>
+               <p className="text-[10px] text-primary/10 uppercase tracking-[0.6em] font-black">Scan or input items to begin sequence</p>
+             </div>
+          </div>
+        ) : (
+          <>
+            {/* Ready Matches */}
+            {readyNow.length > 0 && (
+              <section className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
+                <div className="flex items-center justify-between border-b-2 border-green-500/10 pb-3">
+                  <h2 className="text-sm font-black text-green-600 uppercase tracking-[0.3em] flex items-center gap-3">
+                     <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                     Perfect Synthesis
+                  </h2>
+                  <span className="text-xs font-black text-primary/20 uppercase tracking-widest">{readyNow.length} Blueprints</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {readyNow.map(r => (
+                    <RecipeResultCard key={r._id} recipe={r} isReady dnaMatch={calculateDNAMatch(r)} />
+                  ))}
+                </div>
+              </section>
             )}
 
-            {/* Custom input */}
-            <div className="flex gap-2 pt-1 border-t border-primary/5">
-              <input type="text" value={customInput}
-                onChange={e => setCustomInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addCustom()}
-                placeholder="Add custom ingredient…"
-                className="flex-1 input-field text-xs" />
-                <button onClick={addCustom}
-                className="btn-primary px-4 py-1 text-sm">+</button>
-            </div>
-
-            {/* Kitchen Vision Button */}
-            <div className="pt-2">
-              <input 
-                type="file" 
-                accept="image/*" 
-                capture="environment" 
-                className="hidden" 
-                ref={fileInputRef}
-                onChange={handleVisionScan}
-              />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={scanning}
-                className={`w-full py-2.5 rounded-xl border border-dashed border-accent/40 text-accent bg-accent/5 flex items-center justify-center gap-2 transition-all hover:bg-accent/10 ${scanning ? 'animate-pulse cursor-not-allowed opacity-50' : ''}`}
-              >
-                {scanning ? '🩻 Scanning Kitchen...' : '📸 Snap Fridge/Pantry'}
-              </button>
-              <p className="text-[8px] uppercase tracking-widest text-center text-primary/30 mt-2">
-                AI will detect ingredients from your photo
-              </p>
-            </div>
-          </div>
-
-          {/* AI Insight */}
-          <InsightBanner ingredients={ingredients} />
-
-          {/* Mood Filters */}
-          <div className="space-y-2">
-            <div className="text-[8px] uppercase tracking-[0.3em] text-primary/40 font-bold">Cook by Mood</div>
-            <div className="flex flex-wrap gap-2">
-              {MOODS.map(mood => (
-                <button key={mood.id} onClick={() => toggleMood(mood.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider border transition-all hover:scale-105 ${activeMoods.includes(mood.id)
-                      ? 'bg-primary text-background border-primary'
-                      : 'bg-surface/50 text-primary/60 border-primary/10 hover:border-primary/30'
-                    }`}>
-                  {mood.emoji} {mood.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Ingredient Shelf */}
-          <div className="space-y-3">
-            <div className="text-[8px] uppercase tracking-[0.3em] text-primary/40 font-bold">Ingredient Shelf</div>
-
-            {/* Category tabs */}
-            <div className="flex flex-wrap gap-1.5">
-              {Object.keys(INGREDIENT_SHELF).map(cat => (
-                <button key={cat} onClick={() => setActiveCategory(cat)}
-                  className={`text-[9px] px-2.5 py-1 rounded-lg uppercase tracking-wide border transition-all ${activeCategory === cat
-                      ? 'bg-accent text-background border-accent'
-                      : 'bg-surface/50 text-primary/50 border-primary/10 hover:border-accent/40'
-                    }`}>
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            {/* Ingredient pills */}
-            <div className="flex flex-wrap gap-1.5">
-              {INGREDIENT_SHELF[activeCategory]?.map(ing => {
-                const on = ingredients.includes(ing.toLowerCase());
-                return (
-                  <button key={ing} onClick={() => toggleIngredient(ing)}
-                    className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider border transition-all hover:scale-105 ${on ? 'bg-primary text-background border-primary shadow-md' : 'bg-surface/50 text-primary/60 border-primary/10 hover:border-primary/30'
-                      }`}>
-                    {ing}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {ingredients.length > 0 && (
-            <button onClick={() => { setIngredients([]); setResults([]); }}
-              className="text-[9px] uppercase tracking-widest text-primary/30 hover:text-accent transition-colors w-full text-center pt-2">
-              ✕ Clear all
-            </button>
-          )}
-        </aside>
-
-        {/* RIGHT PANEL */}
-        <main className="lg:col-span-7 space-y-10">
-
-          {/* Empty state */}
-          {!loading && ingredients.length === 0 && (
-            <div className="py-24 flex flex-col items-center text-center gap-5">
-              <div className="text-8xl opacity-10">🥘</div>
-              <div className="space-y-2">
-                <h2 className="font-poiret text-2xl uppercase tracking-widest text-primary/30">What's in your fridge?</h2>
-                <p className="text-[10px] uppercase tracking-widest text-primary/20">Pick ingredients from the shelf · AI finds your perfect dish</p>
+            {/* Alchemy Potential */}
+            <section className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
+              <div className="flex items-center justify-between border-b-2 border-primary/5 pb-3">
+                  <h2 className="text-sm font-black text-primary/40 uppercase tracking-[0.3em] flex items-center gap-3">
+                     <span className="w-2 h-2 rounded-full bg-primary/20" />
+                     Alchemist Discoveries
+                  </h2>
+                  <span className="text-xs font-black text-primary/20 uppercase tracking-widest">{alchemyPotential.length} Reachable</span>
               </div>
-            </div>
-          )}
+              
+              {!alchemyMode && (
+                <div className="p-16 rounded-[2.5rem] bg-gradient-to-br from-primary/[0.03] to-white border-2 border-dashed border-primary/10 text-center space-y-6">
+                  <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto text-3xl">🔮</div>
+                  <div className="space-y-2">
+                     <p className="text-xs text-primary font-black uppercase tracking-[0.2em]">Deep Scan Available</p>
+                     <p className="text-sm text-primary/40 max-w-sm mx-auto font-medium">97,000+ recipes can be "morphed" using AI substitutions if you activate Alchemy.</p>
+                  </div>
+                  <button onClick={() => setAlchemyMode(true)} className="px-8 py-3.5 bg-primary text-white text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-accent transition-all shadow-2xl shadow-primary/20 active:scale-95">Initiate Alchemy Search</button>
+                </div>
+              )}
 
-          {/* Loading skeletons */}
-          {loading && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="rounded-2xl overflow-hidden animate-pulse bg-surface h-64" />
-              ))}
-            </div>
-          )}
-
-          {/* ✔ Ready to Cook */}
-          {!loading && readyNow.length > 0 && (
-            <section className="space-y-5">
-              <SectionHeader label="✔ Ready to Cook" count={readyNow.length} color="#16a34a" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {readyNow.map(r => <RecipeResultCard key={r._id} recipe={r} isReady />)}
-              </div>
+              {alchemyMode && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {alchemyPotential.map(r => (
+                    <RecipeResultCard key={r._id} recipe={r} dnaMatch={calculateDNAMatch(r)} />
+                  ))}
+                </div>
+              )}
             </section>
-          )}
+          </>
+        )}
 
-          {/* ⭐ One Ingredient Away */}
-          {!loading && oneAway.length > 0 && (
-            <section className="space-y-5">
-              <SectionHeader label="⭐ Just 1 Away — Buy It!" count={oneAway.length} color="#d97706" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {oneAway.map(r => <RecipeResultCard key={r._id} recipe={r} />)}
-              </div>
-            </section>
-          )}
-
-          {/* 🌀 More Potential */}
-          {!loading && potential.length > 0 && (
-            <section className="space-y-5">
-              <SectionHeader label="🌀 Culinary Potential" count={potential.length} color="#8D7B6D" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {potential.slice(0, 9).map(r => <RecipeResultCard key={r._id} recipe={r} />)}
-              </div>
-            </section>
-          )}
-
-          {/* No results */}
-          {!loading && ingredients.length > 0 && filtered.length === 0 && (
-            <div className="py-20 text-center space-y-4">
-              <div className="text-6xl opacity-20">🤔</div>
-              <p className="font-poiret text-xl text-primary/30 uppercase tracking-widest">No matches found</p>
-              <p className="text-[10px] uppercase tracking-widest text-primary/20">Try removing a mood filter or adding more ingredients</p>
-              <Link to="/chef"
-                className="inline-flex items-center gap-2 mt-3 btn-primary text-sm">
-                🤖 Let Chef AI create a recipe instead
+        {/* No results */}
+        {ingredients.length > 0 && results.length === 0 && !loading && (
+          <div className="py-24 text-center space-y-8 animate-in zoom-in-95 duration-700">
+            <span className="text-8xl opacity-10">⌬</span>
+            <div className="space-y-4">
+              <h3 className="font-poiret text-4xl text-primary/20 uppercase tracking-widest">Synthesis Failure</h3>
+              <p className="text-[11px] text-primary/20 uppercase tracking-widest font-black">Adjust elements for global potential</p>
+              <Link to="/chef" className="inline-block mt-6 px-10 py-4 border-2 border-primary/5 rounded-2xl text-[11px] font-black text-primary/40 uppercase tracking-[0.2em] hover:border-accent/40 hover:text-accent transition-all">
+                 Consult Chef AI Intelligence →
               </Link>
             </div>
-          )}
-        </main>
-      </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 };
